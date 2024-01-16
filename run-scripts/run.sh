@@ -1,6 +1,5 @@
 #!/bin/bash
 #wbWidth=4 causes error when you run
-export GIT_ROOT=$(pwd)
 # CACHE_CONFIG="--caches --l2cache --l3cache --l3_size 16MB --l3_assoc 16 --ddio-enabled --l1i_size=64kB --l1i_assoc=4 \
 # --l1d_size=64kB --l1d_assoc=4 --l2_size=1MB --l2_assoc=8 --cacheline_size=64"
 CACHE_CONFIG="--caches --l2cache --num-l3caches 1 --l3_size 16MB --l3_assoc 16 --l1i_size=64kB --l1i_assoc=4 \
