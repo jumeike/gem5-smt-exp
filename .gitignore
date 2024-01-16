@@ -7,3 +7,4 @@ gem5-vanilla/build
 simout*
 resources
 m5_binaries
+SecSMT_Artifact
