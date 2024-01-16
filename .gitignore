@@ -7,5 +7,6 @@ gem5-vanilla/build
 simout*
 resources
 m5_binaries
-SecSMT_Artifact
+# SecSMT_Artifact
 commit.sh
+# snuece_adv_architecture

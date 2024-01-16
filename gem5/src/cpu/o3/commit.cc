@@ -68,6 +68,9 @@
 #include "sim/faults.hh"
 #include "sim/full_system.hh"
 
+// AMIN
+#include "debug/smtDebug.hh"
+
 namespace gem5
 {
 
@@ -877,6 +880,25 @@ Commit::commit()
                 fromIEW->branchTaken[tid];
             toIEW->commitInfo[tid].squashInst =
                                     rob->findInst(tid, squashed_inst);
+
+            // AMIN
+            ///////////////////WHEN BRANCH MISPREDICTED////////////////////
+
+			// int entryMispred = cpu->fmt_v[tid]->FindInst(squashed_inst);
+			DPRINTF(smtDebug, "(BRANCH MISPRED) : %d\n", squashed_inst);
+			// if(entryMispred!=-1){//entry found
+			// 	cpu->fmt_v[tid]->ForwardDispTailPtr(entryMispred); // change tail pointer
+			// 	cpu->fmt_v[tid]->SetMispredBitOnTail(); // set mispredict bit on
+			// 	cpu->fmt_v[tid]->ForwardFetchPtr(entryMispred); // change fetch pointer
+			// 	//in order to count mispred penalty until next dispatch 
+			// 	cpu->fmt_v[tid]->SetCorrectWayFetching(true); 
+			// }
+			// //debug
+			// else{ 
+			// 	DPRINTF(SMT_Commit, "NOT FOUND at FMT : tid %d\n", tid);
+			// }
+			//***********************************************************//
+			
             if (toIEW->commitInfo[tid].mispredictInst) {
                 if (toIEW->commitInfo[tid].mispredictInst->isUncondCtrl()) {
                      toIEW->commitInfo[tid].branchTaken = true;
@@ -1348,6 +1370,9 @@ Commit::getInsts()
                     tid, inst->seqNum, inst->pcState());
 
             rob->insertInst(inst);
+            // AMIN
+            DPRINTF(smtDebug, "[tid:%i] [sn:%llu] Inserting PC %s into ROB.\n",
+                    tid, inst->seqNum, inst->pcState());
 
             assert(rob->getThreadEntries(tid) <= rob->getMaxEntries(tid));
 
