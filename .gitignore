@@ -1,0 +1,8 @@
+.DS_Store
+venv
+ckpts
+rundir
+gem5/build
+simout*
+resources
+m5_binaries
