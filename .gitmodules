@@ -1,0 +1,3 @@
+[submodule "SecSMT_Artifact"]
+	path = SecSMT_Artifact
+	url = https://github.com/mktrm/SecSMT_Artifact.git
