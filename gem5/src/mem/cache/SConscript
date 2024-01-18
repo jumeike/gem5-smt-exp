@@ -55,3 +55,13 @@ DebugFlag('HWPrefetchQueue')
 CompoundFlag('CacheAll', ['Cache', 'CacheComp', 'CachePort', 'CacheRepl',
                           'CacheVerbose', 'HWPrefetch', 'MSHR'])
 
+# SHIN. DebugFlags for AdaptiveDDIO
+DebugFlag('AdaptiveDdioCache')
+DebugFlag('AdaptiveDdioBridge')
+DebugFlag('AdaptiveDdioBridgeHint')
+DebugFlag('AdaptiveDdioXBar')
+DebugFlag('DDIO')
+
+# SHIN. DebugFlags for AdaptiveDDIO w ADQ
+DebugFlag('AdaptiveDdioOtf')
+DebugFlag('AdaptiveDdioOtfInfo')

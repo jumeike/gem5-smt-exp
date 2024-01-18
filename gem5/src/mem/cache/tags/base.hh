@@ -263,6 +263,12 @@ class BaseTags : public ClockedObject
         blk->invalidate();
     }
 
+    // SHIN
+    virtual void invalidateDDIO(CacheBlk *blk)
+    {
+        panic("this should be implement in the tag policy that you want to use\n");
+    }
+
     /**
      * Find replacement victim based on address. If the address requires
      * blocks to be evicted, their locations are listed for eviction. If a
@@ -281,6 +287,14 @@ class BaseTags : public ClockedObject
     virtual CacheBlk* findVictim(Addr addr, const bool is_secure,
                                  const std::size_t size,
                                  std::vector<CacheBlk*>& evict_blks) = 0;
+
+
+    // SHIN
+    virtual CacheBlk* findVictimWayPart(Addr addr, const bool is_secure,
+                                 std::vector<CacheBlk*>& evict_blks,
+                                 int32_t way_part = -1) const {
+        panic("you should only use way partitioning with LRU tags");
+    }
 
     /**
      * Access block and update replacement data. May not succeed, in which case

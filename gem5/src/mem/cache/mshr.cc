@@ -64,7 +64,7 @@ MSHR::MSHR(const std::string &name)
         downstreamPending(false),
         pendingModified(false),
         postInvalidate(false), postDowngrade(false),
-        wasWholeLineWrite(false), isForward(false),
+        wasWholeLineWrite(false), isForward(false), wasBlockIO(false),
         targets(name + ".targets"),
         deferredTargets(name + ".deferredTargets")
 {
@@ -314,6 +314,15 @@ MSHR::allocate(Addr blk_addr, unsigned blk_size, PacketPtr target,
     _isUncacheable = target->req->isUncacheable();
     inService = false;
     downstreamPending = false;
+
+
+    // SHIN
+    wasBlockIO = target->isBlockIO();
+    qid_from_dev = target->getDdioPrefetchDestination();
+    is_header = target->isDdioHeader();
+    is_ddio_pkt = target->isDdioPkt();
+    
+    
 
     targets.init(blkAddr, blkSize);
     deferredTargets.init(blkAddr, blkSize);

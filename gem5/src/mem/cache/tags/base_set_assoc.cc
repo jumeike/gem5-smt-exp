@@ -97,6 +97,19 @@ BaseSetAssoc::invalidate(CacheBlk *blk)
     replacementPolicy->invalidate(blk->replacementData);
 }
 
+// SHIN
+void
+BaseSetAssoc::invalidateDDIO(CacheBlk *blk)
+{
+    BaseTags::invalidate(blk);
+
+     // Decrease the number of tags in use
+    stats.tagsInUse--;
+
+     // Invalidate replacement data
+    replacementPolicy->invalidateDDIO(blk->replacementData);
+}
+
 void
 BaseSetAssoc::moveBlock(CacheBlk *src_blk, CacheBlk *dest_blk)
 {

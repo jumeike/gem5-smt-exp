@@ -46,6 +46,8 @@ from m5.objects import *
 # starting point, and specific parameters can be overridden in the
 # specific instantiations.
 
+# Johnson
+ 
 class L1Cache(Cache):
     assoc = 2
     tag_latency = 2
@@ -62,6 +64,12 @@ class L1_ICache(L1Cache):
 class L1_DCache(L1Cache):
     pass
 
+class L1_ICacheSmt(L1Cache):
+    pass
+
+class L1_DCacheSmt(L1Cache):
+    pass
+
 class L2Cache(Cache):
     assoc = 8
     tag_latency = 20
@@ -70,15 +78,33 @@ class L2Cache(Cache):
     mshrs = 20
     tgts_per_mshr = 12
     write_buffers = 8
+    
+    # SHIN.
+    # ddio_way_part = 4
+    # is_llc = False
+
 
 class IOCache(Cache):
     assoc = 8
-    tag_latency = 50
-    data_latency = 50
-    response_latency = 50
+    tag_latency = 20
+    data_latency = 20
+    response_latency = 20
     mshrs = 20
     size = '1kB'
     tgts_per_mshr = 12
+
+
+class PerfIOCache(Cache):
+    assoc = 8
+    tag_latency = 1
+    data_latency = 1
+    response_latency = 1
+    mshrs = 500
+    size = '1kB'
+    tgts_per_mshr = 500
+
+    # SHIN. Added information to identify if it is an IO cache.
+    is_iocache = True
 
 class PageTableWalkerCache(Cache):
     assoc = 2
@@ -96,3 +122,43 @@ class PageTableWalkerCache(Cache):
         is_read_only = True
         # Writeback clean lines as well
         writeback_clean = True
+
+
+
+
+# SHIN. Cache types.
+# L2 Cache
+class L2MLC(Cache):
+    assoc = 8
+    tag_latency = 20
+    data_latency = 20
+    response_latency = 20
+    mshrs = 20
+    tgts_per_mshr = 12
+    write_buffers = 8
+    prefetch_on_access = True
+    clusivity = 'mostly_excl'
+    # Simple stride prefetcher
+    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    tags = BaseSetAssoc()
+    repl_policy = RandomRP()
+
+# L3 Cache
+class L3(Cache):
+    size = '16MB'
+    assoc = 16
+    tag_latency = 20
+    data_latency = 20
+    response_latency = 20
+    mshrs = 20
+    tgts_per_mshr = 12
+    clusivity='mostly_excl'
+    prefetch_on_access = True
+    clusivity = 'mostly_excl'
+    # Simple stride prefetcher
+    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    tags = BaseSetAssoc()
+    repl_policy = RandomRP()
+    #repl_policy = LRURP()
+    ddio_way_part = 2 # original 4
+    is_llc = True

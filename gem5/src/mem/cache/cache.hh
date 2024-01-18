@@ -86,7 +86,7 @@ class Cache : public BaseCache
     void promoteWholeLineWrites(PacketPtr pkt);
 
     bool access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
-                PacketList &writebacks) override;
+                PacketList &writebacks, bool is_ddio = false) override; // SHIN
 
     void handleTimingReqHit(PacketPtr pkt, CacheBlk *blk,
                             Tick request_time) override;

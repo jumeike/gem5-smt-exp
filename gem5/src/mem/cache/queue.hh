@@ -121,6 +121,7 @@ class Queue : public Drainable, public Named
 
     /** The number of currently allocated entries. */
     int allocated;
+    int numReserveDDIOWrite;
 
   public:
 
@@ -135,7 +136,8 @@ class Queue : public Drainable, public Named
         Named(name),
         label(_label), numEntries(num_entries + reserve),
         numReserve(reserve), entries(numEntries, name + ".entry"),
-        _numInService(0), allocated(0)
+        _numInService(0), allocated(0),
+        numReserveDDIOWrite(0) // SHIN
     {
         for (int i = 0; i < numEntries; ++i) {
             freeList.push_back(&entries[i]);
@@ -149,12 +151,25 @@ class Queue : public Drainable, public Named
 
     bool isFull() const
     {
-        return (allocated >= numEntries - numReserve);
+        // SHIN
+        // return (allocated >= numEntries - numReserve);
+        return (allocated >= numEntries - numReserve - numReserveDDIOWrite);
     }
 
     int numInService() const
     {
         return _numInService;
+    }
+
+    // SHIN
+    void reserveDDIOWrite() {
+        numReserveDDIOWrite ++;
+        assert(numReserveDDIOWrite < numEntries);
+    }
+
+     void unreserveDDIOWrite() {
+        numReserveDDIOWrite --;
+        assert(numReserveDDIOWrite >= 0);
     }
 
     /**

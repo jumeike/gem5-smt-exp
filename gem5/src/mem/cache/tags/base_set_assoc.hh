@@ -114,6 +114,9 @@ class BaseSetAssoc : public BaseTags
      */
     void invalidate(CacheBlk *blk) override;
 
+    // SHIN
+    void invalidateDDIO(CacheBlk *blk) override;
+
     /**
      * Access block and update replacement data. May not succeed, in which case
      * nullptr is returned. This has all the implications of a cache access and
@@ -181,6 +184,33 @@ class BaseSetAssoc : public BaseTags
         evict_blks.push_back(victim);
 
         return victim;
+    }
+
+    // SHIN
+    CacheBlk* findVictimWayPart(Addr addr, const bool is_secure,
+                         std::vector<CacheBlk*>& evict_blks,
+                         int32_t way_part) const override
+    {
+        // Get possible entries to be victimized
+
+         // FOR DDIO, we need to add some fileds to replaceable entry that 
+        // indicates which ways are for ddio and which ways are not
+        // ** for set assoc indexing policy, "entries" are all the ways in
+        // one set
+        const std::vector<ReplaceableEntry*> entries =
+            indexingPolicy->getPossibleEntries(addr);
+
+         // Choose replacement victim from replacement candidates
+
+         // FOR DDIO - then in getVictim, if we are in ddio mode and this entry is 
+        // going to hold ddio data, then we only choose between the taged entries. 
+        CacheBlk* victim = static_cast<CacheBlk*>(replacementPolicy->getVictimWayPart(
+                                entries, way_part));
+
+         // There is only one eviction for this replacement
+        evict_blks.push_back(victim);
+
+         return victim;
     }
 
     /**

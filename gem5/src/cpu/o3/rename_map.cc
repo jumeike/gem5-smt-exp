@@ -80,9 +80,6 @@ SimpleRenameMap::rename(const RegId& arch_reg)
     PhysRegIdPtr prev_reg = map[arch_reg.flatIndex()];
 
     if (arch_reg == zeroReg) {
-        // Johnson
-        std::cout << "prev_reg->index() = " << prev_reg->index() << std::endl;
-        std::cout << "zeroReg->index() = " << zeroReg.index() << std::endl;
         assert(prev_reg->index() == zeroReg.index());
         renamed_reg = prev_reg;
     } else if (prev_reg->getNumPinnedWrites() > 0) {

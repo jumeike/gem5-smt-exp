@@ -481,7 +481,7 @@ if main['USE_PYTHON']:
         useful_flags = list(filter(is_useful, flags))
         env.MergeFlags(' '.join(useful_flags))
 
-    main.ParseConfig(cmd, flag_filter)
+    main.ParseConfig(cmd)
 
     main.Prepend(CPPPATH=Dir('ext/pybind11/include/'))
 

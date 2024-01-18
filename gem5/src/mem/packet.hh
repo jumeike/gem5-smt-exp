@@ -349,7 +349,15 @@ class Packet : public Printable
 
         // Signal block present to squash prefetch and cache evict packets
         // through express snoop flag
-        BLOCK_CACHED          = 0x00010000
+        BLOCK_CACHED          = 0x00010000,
+
+
+        // SHIN
+        DDIO_PREFETCH_HINT    = 0x00020000,
+        DDIO_PREFETCH_HEADER    = 0x00040000,
+
+         // Block is from IO
+        BLOCK_IO          = 0x00100000
     };
 
     Flags flags;
@@ -1443,6 +1451,43 @@ class Packet : public Printable
      * @return string with the request's type and start<->end addresses
      */
     std::string print() const;
+
+    // SHIN
+  private:
+    // ADQ
+    int ddio_prefetch_id = -1;
+    
+    // SHIN. For MLC/LLC/Mem DDIO
+    int ddio_prefetch_destination = -1;
+    bool is_ddio_pkt = false;
+    bool is_ddio_header = false;
+
+    // SHIN. For MLC Prefetch
+    bool is_prefetch_hint_pkt = false;
+    bool is_block_io;
+
+  public:
+    void setDdioPrefetchId(int ddio_id){ddio_prefetch_id = ddio_id;}
+    void setDdioPrefetchDestination(int ddio_dest){ddio_prefetch_destination = ddio_dest;}
+    void setDdioHeader() {is_ddio_header = true; flags.set(DDIO_PREFETCH_HEADER);}
+    void setPrefetchHintPkt(){is_prefetch_hint_pkt = true;}
+    void unsetPrefetchHintPkt(){is_prefetch_hint_pkt = false;}
+    void setDdioPkt(){is_ddio_pkt = true;}
+
+    int  getDdioPrefetchId(){return ddio_prefetch_id;}
+    int  getDdioPrefetchDestination(){return ddio_prefetch_destination;}
+    bool isDdioPkt(){return is_ddio_pkt;}
+    bool isDdioHeader(){
+        return is_ddio_header || flags.isSet(DDIO_PREFETCH_HEADER);
+    }
+    bool isPrefetchHintPkt(){return is_prefetch_hint_pkt;}
+    bool isPrefetchHintPktConst() const {return is_prefetch_hint_pkt;}
+    int  getDdioPrefetchDestinationConst() const {return ddio_prefetch_destination;}
+    bool isBlockIO(){return is_block_io;}
+
+    void setBlockIO()          { flags.set(BLOCK_IO); }
+    bool isBlockIO() const     { return flags.isSet(BLOCK_IO); }
+    void clearBlockIO()        { flags.clear(BLOCK_IO); }
 
     // hardware transactional memory
 

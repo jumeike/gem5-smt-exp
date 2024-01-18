@@ -367,6 +367,9 @@ class Base : public ClockedObject
     /** Registered tlb for address translations */
     BaseTLB * tlb;
 
+    // SHIN. is DDIO?
+    bool ddioPrefetch = false;
+
   public:
     Base(const BasePrefetcherParams &p);
     virtual ~Base() = default;

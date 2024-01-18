@@ -52,6 +52,9 @@
 #include "params/BasePrefetcher.hh"
 #include "sim/system.hh"
 
+// SHIN
+#include "debug/AdaptiveDdioMlcPrefetcher.hh"
+
 namespace gem5
 {
 
@@ -103,7 +106,8 @@ Base::Base(const BasePrefetcherParams &p)
       prefetchOnPfHit(p.prefetch_on_pf_hit),
       useVirtualAddresses(p.use_virtual_addresses),
       prefetchStats(this), issuedPrefetches(0),
-      usefulPrefetches(0), tlb(nullptr)
+      usefulPrefetches(0), tlb(nullptr),
+      ddioPrefetch(p.is_ddio_prefetcher) // SHIN
 {
 }
 
@@ -282,12 +286,31 @@ Base::regProbeListeners()
      */
     if (listeners.empty() && cache != nullptr) {
         ProbeManager *pm(cache->getProbeManager());
-        listeners.push_back(new PrefetchListener(*this, pm, "Miss", false,
-                                                true));
-        listeners.push_back(new PrefetchListener(*this, pm, "Fill", true,
-                                                 false));
-        listeners.push_back(new PrefetchListener(*this, pm, "Hit", false,
-                                                 false));
+        
+        // SHIN
+        if(ddioPrefetch) {
+            DPRINTF(AdaptiveDdioMlcPrefetcher, "Listen DdioHint\n");
+            listeners.push_back(new PrefetchListener(*this, pm, "DdioHint"));
+        }
+        else{
+            DPRINTF(AdaptiveDdioMlcPrefetcher, "Listen Miss Fill Hit\n");
+            listeners.push_back(new PrefetchListener(*this, pm, "Miss", false,
+                                                    true));
+            listeners.push_back(new PrefetchListener(*this, pm, "Fill", true,
+                                                    false));
+            if (prefetchOnAccess) {
+                listeners.push_back(new PrefetchListener(*this, pm, "Hit", false,
+                                                        false));
+            }
+        }
+        
+        
+        // listeners.push_back(new PrefetchListener(*this, pm, "Miss", false,
+        //                                         true));
+        // listeners.push_back(new PrefetchListener(*this, pm, "Fill", true,
+        //                                          false));
+        // listeners.push_back(new PrefetchListener(*this, pm, "Hit", false,
+        //                                          false));
     }
 }
 

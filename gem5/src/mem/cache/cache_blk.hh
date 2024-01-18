@@ -151,7 +151,35 @@ class CacheBlk : public TaggedEntry
      * on the block since the last store. */
     std::list<Lock> lockList;
 
+    // ADQ
+    int ddio_prefetch_id = -1;
+    
+    // SHIN. For MLC/LLC/Mem DDIO
+    int ddio_prefetch_destination = -1;
+    bool is_ddio_pkt = false;
+    bool is_ddio_header = false;
+
+    // SHIN. For MLC Prefetch
+    bool is_prefetch_hint_pkt = false;
+    bool is_block_io;
+
   public:
+    // SHIN
+    void setDdioPrefetchId(int ddio_id){ddio_prefetch_id = ddio_id;}
+    void setDdioPrefetchDestination(int ddio_dest){ddio_prefetch_destination = ddio_dest;}
+    void setDdioHeader() {is_ddio_header = true;}
+    void setPrefetchHintPkt(){is_prefetch_hint_pkt = true;}
+    void unsetPrefetchHintPkt(){is_prefetch_hint_pkt = false;}
+    void setDdioPkt(){is_ddio_pkt = true;}
+
+    int  getDdioPrefetchId(){return ddio_prefetch_id;}
+    int  getDdioPrefetchDestination(){return ddio_prefetch_destination;}
+    bool isDdioPkt(){return is_ddio_pkt;}
+    bool isDdioHeader(){return is_ddio_header;}
+    bool isPrefetchHintPkt(){return is_prefetch_hint_pkt;}
+    bool isBlockIO(){return is_block_io;}
+
+    
     CacheBlk() : TaggedEntry(), data(nullptr), _tickInserted(0)
     {
         invalidate();

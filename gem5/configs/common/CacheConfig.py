@@ -97,6 +97,9 @@ def config_cache(options, system):
 
         dcache_class, icache_class, l2_cache_class, walk_cache_class = \
             core.HPI_DCache, core.HPI_ICache, core.HPI_L2, core.HPI_WalkCache
+    elif options.smt:
+        dcache_class, icache_class, dcache_class_smt, icache_class_smt, l2_cache_class, walk_cache_class = \
+            L1_DCache, L1_ICache, L1_DCache, L1_ICache, L2Cache, None
     else:
         dcache_class, icache_class, l2_cache_class, walk_cache_class = \
             L1_DCache, L1_ICache, L2Cache, None
@@ -114,7 +117,25 @@ def config_cache(options, system):
     if options.l2cache and options.elastic_trace_en:
         fatal("When elastic trace is enabled, do not configure L2 caches.")
 
-    if options.l2cache:
+    #if options.l2cache:
+    # Add L3 cache (for IDIO)
+    if options.l3cache:
+        if not options.l2cache:
+            fatal("L3 cache cannot exist without L2 cache")
+
+        system.l3 = l2_cache_class(clk_domain = system.cpu_clk_domain,
+                                    size = options.l3_size,
+                                    assoc = options.l3_assoc)
+        if options.disable_snoop_filter:
+            system.tol3bus = L3XBar(clk_domain = system.clk_domain, snoop_filter = NULL)
+        else:
+            system.tol3bus = L3XBar(clk_domain = system.clk_domain,
+            snoop_filter=SnoopFilter(lookup_latency = 0, is_for_l3x = True, max_capacity="32MB"))
+
+        system.l3.cpu_side = system.tol3bus.master
+        system.l3.mem_side = system.membus.slave
+
+    elif options.l2cache:
         # Provide a clock for the L2 and the L1-to-L2 bus here as they
         # are not connected using addTwoLevelCacheHierarchy. Use the
         # same clock as the CPUs.
@@ -128,10 +149,42 @@ def config_cache(options, system):
     if options.memchecker:
         system.memchecker = MemChecker()
 
-    for i in range(options.num_cpus):
+    # if options.smt:
+    #     # Create 2 instances of icache, dcache, and l2caches
+    #     icache_smt1 = icache_class(**_get_cache_opts('l1i', options))
+    #     dcache_smt1 = dcache_class(**_get_cache_opts('l1d', options))
+    #     icache_smt2 = icache_class_smt(**_get_cache_opts('l1i', options))
+    #     dcache_smt2 = dcache_class_smt(**_get_cache_opts('l1d', options))
+    #     icache_smt3 = icache_class(**_get_cache_opts('l1i', options))
+    #     dcache_smt3 = dcache_class(**_get_cache_opts('l1d', options))
+    #     icache_smt4 = icache_class_smt(**_get_cache_opts('l1i', options))
+    #     dcache_smt4 = dcache_class_smt(**_get_cache_opts('l1d', options))
+    #     l2_smt1 = l2_cache_class(size=options.l2_size, assoc=options.l2_assoc)
+    #     l2_smt2 = l2_cache_class(size=options.l2_size, assoc=options.l2_assoc)
+    #     system.cpu[0].addTwoLevelCacheHierarchyMerged(icache_smt1, dcache_smt1, icache_smt2, dcache_smt2, system.cpu[1],l2_smt1)
+    #     # system.cpu[1].addTwoLevelCacheHierarchy(icache_smt1, dcache_smt1, l2_smt1)
+    #     system.cpu[2].addTwoLevelCacheHierarchyMerged(icache_smt3, dcache_smt3, icache_smt4, dcache_smt4, system.cpu[3], l2_smt2)
+    #     # system.cpu[3].addTwoLevelCacheHierarchy(icache_smt2, dcache_smt2, l2_smt2)
+    for i in range(0,options.num_cpus,2):
+        print(f"run: {i}")
         if options.caches:
             icache = icache_class(**_get_cache_opts('l1i', options))
             dcache = dcache_class(**_get_cache_opts('l1d', options))
+            
+            # JOHNSON
+            icache_smt1 = icache_class(**_get_cache_opts('l1i', options))
+            dcache_smt1 = dcache_class(**_get_cache_opts('l1d', options))
+            icache_smt2 = icache_class_smt(**_get_cache_opts('l1i', options))
+            dcache_smt2 = dcache_class_smt(**_get_cache_opts('l1d', options))
+
+            # SHIN make L2 as MLC of IDIO
+            if options.mlc_adaptive_ddio:
+                l2 = l2_cache_class(size=options.l2_size, assoc=options.l2_assoc, is_mlc=True, mlc_idx = i, mlc_ddio = True,
+                                    prefetcher=MultiPrefetcher(
+                                        prefetchers=[StridePrefetcher(degree=8, latency = 1),
+                                                    MlcPrefetcher()]))
+            else:
+                l2 = l2_cache_class(size=options.l2_size, assoc=options.l2_assoc)
 
             # If we have a walker cache specified, instantiate two
             # instances here
@@ -159,8 +212,18 @@ def config_cache(options, system):
 
             # When connecting the caches, the clock is also inherited
             # from the CPU in question
-            system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
-                                                  iwalkcache, dwalkcache)
+            
+            # SHIN.
+            # system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
+            #                                      iwalkcache, dwalkcache)
+
+            if options.l3cache:
+                if options.smt:
+                    system.cpu[i].addTwoLevelCacheHierarchyMerged(icache_smt1, dcache_smt1, icache_smt2, dcache_smt2, system.cpu[i+1],l2)
+                else:
+                    system.cpu[i].addTwoLevelCacheHierarchy(icache, dcache, l2)
+            else:
+                system.cpu[i].addPrivateSplitL1Caches(icache, dcache,iwalkcache, dwalkcache)
 
             if options.memchecker:
                 # The mem_side ports of the caches haven't been connected yet.
@@ -184,14 +247,21 @@ def config_cache(options, system):
                 system.cpu[i].addPrivateSplitL1Caches(
                         ExternalCache("cpu%d.icache" % i),
                         ExternalCache("cpu%d.dcache" % i))
-
+            
         system.cpu[i].createInterruptController()
-        if options.l2cache:
+        system.cpu[i+1].createInterruptController()
+        if options.l3cache:
+            system.cpu[i].connectAllPorts(system.tol3bus, system.membus)
+            # system.cpu[i+1].connectAllPorts(system.tol3bus, system.membus)
+        elif options.l2cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
+            # system.cpu[i+1].connectAllPorts(system.tol2bus, system.membus)
         elif options.external_memory_system:
             system.cpu[i].connectUncachedPorts(system.membus)
+            # system.cpu[i+1].connectUncachedPorts(system.membus)
         else:
             system.cpu[i].connectAllPorts(system.membus)
+            # system.cpu[i+1].connectAllPorts(system.membus)
 
     return system
 

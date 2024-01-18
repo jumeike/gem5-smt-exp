@@ -41,6 +41,8 @@
 Import('*')
 
 SimObject('Ethernet.py')
+#SimObject('load_generator.py')
+
 
 # Basic Ethernet infrastructure
 Source('etherbus.cc')
@@ -77,12 +79,25 @@ DebugFlag('DistEthernetCmd')
 Source('i8254xGBe.cc')
 Source('ns_gige.cc')
 Source('sinic.cc')
+Source('load_generator.cc')
+Source('load_generator_pcap.cc')
 
+
+# LOADGEN
+SimObject('load_generator.py')
+SimObject('load_generator_pcap.py')
 
 
 CompoundFlag('EthernetAll', [ 'Ethernet', 'EthernetPIO', 'EthernetDMA',
     'EthernetData' , 'EthernetDesc', 'EthernetIntr', 'EthernetSM',
-    'EthernetCksum', 'EthernetEEPROM' ])
+    'EthernetCksum', 'EthernetEEPROM', 'LoadgenDebug', 'LoadgenLatency' ])
 
 CompoundFlag('EthernetNoData', [ 'Ethernet', 'EthernetPIO', 'EthernetDesc',
     'EthernetIntr', 'EthernetSM', 'EthernetCksum' ])
+
+CompoundFlag('EthernetLoadgen', [ 'EthernetDpdk', 'LoadgenDebug', 
+    'LoadgenLatency' ])
+
+DebugFlag('LoadgenDebug')
+DebugFlag('LoadgenLatency')
+DebugFlag('EthernetDpdk')

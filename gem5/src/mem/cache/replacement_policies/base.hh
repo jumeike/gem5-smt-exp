@@ -67,6 +67,14 @@ class Base : public SimObject
     virtual void invalidate(const std::shared_ptr<ReplacementData>&
         replacement_data) = 0;
 
+    // SHIN
+    virtual void invalidateDDIO(const std::shared_ptr<ReplacementData>&
+                                                replacement_data) const {
+        // this should be implemented in lru or others that want to implement
+        // cache partitioning
+        return;
+    }
+
     /**
      * Update replacement data.
      *
@@ -103,6 +111,15 @@ class Base : public SimObject
      */
     virtual ReplaceableEntry* getVictim(
                            const ReplacementCandidates& candidates) const = 0;
+
+    // SHIN
+    virtual ReplaceableEntry* getVictimWayPart(
+                               const ReplacementCandidates& candidates,
+                               int32_t way_part = -1) const {
+            // this should be implemented in lru or others that want to implement
+            // cache partiotioning
+            return nullptr;
+    }
 
     /**
      * Instantiate a replacement data entry.

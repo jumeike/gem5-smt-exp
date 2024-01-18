@@ -34,6 +34,9 @@
 #include "params/LRURP.hh"
 #include "sim/cur_tick.hh"
 
+// SHIN
+#include "debug/DDIO.hh"
+
 namespace gem5
 {
 
@@ -52,6 +55,25 @@ LRU::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
     // Reset last touch timestamp
     std::static_pointer_cast<LRUReplData>(
         replacement_data)->lastTouchTick = Tick(0);
+
+        // SHIN
+        std::static_pointer_cast<LRUReplData>(
+        replacement_data)->ioInvalidated = false;
+}
+
+
+// SHIN
+
+void
+LRU::invalidateDDIO(const std::shared_ptr<ReplacementData>& replacement_data)
+const
+{
+    // Reset last touch timestamp
+    std::static_pointer_cast<LRUReplData>(
+        replacement_data)->lastTouchTick = Tick(0);
+
+     std::static_pointer_cast<LRUReplData>(
+        replacement_data)->ioInvalidated = true;
 }
 
 void
@@ -90,6 +112,60 @@ LRU::getVictim(const ReplacementCandidates& candidates) const
 
     return victim;
 }
+
+
+// SHIN
+ReplaceableEntry*
+LRU::getVictimWayPart(const ReplacementCandidates& candidates,
+                        int32_t way_part) const
+{
+    // There must be at least one replacement candidate
+    assert(candidates.size() > 0);
+
+     uint32_t mask = 0x01;
+    bool is_in_part = false;
+    bool is_io_invalidated = false;
+    if(is_io_invalidated){}
+    int way = 0;
+    // Visit all candidates to find victim
+    ReplaceableEntry* victim = candidates[0];
+    //sanity check
+    assert(victim->getWay() == 0);
+    for (const auto& candidate : candidates) {
+        assert(candidate->getWay() == way);
+        if (std::static_pointer_cast<LRUReplData>(
+                        candidate->replacementData)->ioInvalidated) {
+            victim = candidate;
+            is_io_invalidated = true;
+            std::static_pointer_cast<LRUReplData>(
+                        candidate->replacementData)->ioInvalidated = false;
+            break;
+        }
+
+         if (mask & way_part) {
+            if (is_in_part == false) {
+                victim = candidate;
+                is_in_part = true;
+            }
+
+             // Update victim entry if necessary
+            if (std::static_pointer_cast<LRUReplData>(
+                        candidate->replacementData)->lastTouchTick <
+                    std::static_pointer_cast<LRUReplData>(
+                        victim->replacementData)->lastTouchTick) {
+                victim = candidate;
+            }
+        }
+        way ++;
+        mask = mask << 1;
+        assert(way < 32);
+    }
+    //DPRINTF(DDIO, "%s: victim way %d is_in_part %d is_io_invalidated %d\n", __func__, victim->getWay(), is_in_part, is_io_invalidated);
+    //printf("getVictimWayPart: victim way %d is_in_part %d\n", victim->getWay(), is_in_part);
+
+     return victim;
+}
+
 
 std::shared_ptr<ReplacementData>
 LRU::instantiateEntry()

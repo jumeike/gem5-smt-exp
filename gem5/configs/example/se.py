@@ -234,7 +234,7 @@ for i in range(np):
         indirectBPClass = \
             ObjectList.indirect_bp_list.get(args.indirect_bp_type)
         system.cpu[i].branchPred.indirectBranchPred = indirectBPClass()
-    print("===> creating smt threads from se.py")
+
     system.cpu[i].createThreads()
 
 if args.ruby:

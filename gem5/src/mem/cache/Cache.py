@@ -120,6 +120,8 @@ class BaseCache(ClockedObject):
 
     cpu_side = ResponsePort("Upstream port closer to the CPU and/or device")
     mem_side = RequestPort("Downstream port closer to memory")
+    cpu_side_smt = ResponsePort("Upstream port closer to the CPU and/or device")
+    mem_side_smt = RequestPort("Downstream port closer to memory")
 
     addr_ranges = VectorParam.AddrRange([AllMemory],
          "Address range for the CPU-side port (to allow striping)")
@@ -152,10 +154,31 @@ class BaseCache(ClockedObject):
     # data cache.
     write_allocator = Param.WriteAllocator(NULL, "Write allocator")
 
+    # SHIN. For MLC ddio
+    is_mlc = Param.Bool(False)
+    mlc_idx = Param.Int(-1)
+    is_iocache = Param.Bool(False)
+    send_header_only = Param.Bool(False)
+    mlc_ddio = Param.Bool(False)
+
+    # SHIN. baseline from malian
+    ddio_enabled = Param.Bool(True, "Enabled DDIO?")
+    ddio_disabled = Param.Bool(False, "Disabled DDIO?")
+    is_llc = Param.Bool(False, "Is this cache the llc?")
+    ddio_way_part = Param.Int(-1, "way partitioning for ddio; "
+                                  "-1 means all sets can be used")
+
 class Cache(BaseCache):
     type = 'Cache'
     cxx_header = 'mem/cache/cache.hh'
     cxx_class = 'gem5::Cache'
+
+    # SHIN
+    is_mlc = False
+    mlc_idx = -1
+    is_iocache = False
+    send_header_only = False
+    mlc_ddio = False
 
 class NoncoherentCache(BaseCache):
     type = 'NoncoherentCache'

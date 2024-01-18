@@ -58,6 +58,18 @@ class EtherDevice : public PciDevice
     struct EtherDeviceStats : public statistics::Group
     {
         EtherDeviceStats(statistics::Group *parent);
+        
+        statistics::Scalar dmaDrops;
+        statistics::Scalar coreDrops;
+        statistics::Scalar txDrops;
+        statistics::Scalar unknownDrops;
+        statistics::Scalar rxdisabledDrops;
+        statistics::Scalar rxFifoFullCount;
+        statistics::Scalar txFifoFullCount;
+        statistics::Scalar rxDescCacheFullCount;
+        statistics::Scalar txDescCacheFullCount;
+        statistics::Scalar rxRingBufferFull;
+        statistics::Scalar txRingBufferFull;
 
         statistics::Scalar postedInterrupts;
 

@@ -168,12 +168,17 @@ DEFAULT_FS_CONFIG=$M5_PATH/configs/example/fs.py
 DEFAULT_SW_CONFIG=$M5_PATH/configs/dist/sw.py
 DEFAULT_SW_PORT=2200
 
+echo $DEFAULT_SW_PORT
+
 [ -z "$FS_CONFIG" ] && FS_CONFIG=$DEFAULT_FS_CONFIG
 [ -z "$SW_CONFIG" ] && SW_CONFIG=$DEFAULT_SW_CONFIG
 [ -z "$SW_PORT" ] && SW_PORT=$DEFAULT_SW_PORT
 [ -z "$NNODES" ] && NNODES=2
 [ -z "$RUN_DIR" ] && RUN_DIR=$(pwd)
 [ -z "$CKPT_DIR" ] && CKPT_DIR=$(pwd)
+
+echo $SW_PORT
+
 
 #  Check if all the executables we need exist
 [ -f "$FS_CONFIG" ] || { echo "FS config ${FS_CONFIG} not found"; exit 1; }
@@ -324,7 +329,10 @@ LINE=$(grep -r "tcp_iface listening on port" $RUN_DIR/log.switch)
 IFS=' ' read -ra ADDR <<< "$LINE"
 # actual port that switch is listening on may be different
 # from what we specified if the port was busy
-SW_PORT=${ADDR[5]}
+SW_PORT=${ADDR[6]}
+
+echo $SW_PORT
+
 
 # Now launch all the gem5 processes with ssh.
 echo "START $(date)"
@@ -354,6 +362,7 @@ do
 	((n+=1))
     done
 done
+
 
 # Wait here if it is a debug session
 [ "x$GEM5_DEBUG" == "x" ] || {  echo "DEBUG session"; wait $SW_PID; exit -1; }

@@ -85,6 +85,10 @@ class ArmSystem(System):
     semihosting = Param.ArmSemihosting(NULL,
         "Enable support for the Arm semihosting by settings this parameter")
 
+    #nics = VectorParam.EtherDevice([],"NICs")
+    #links = VectorParam.EtherLink([],"EtherLinks for NICs")
+    #loadgens = VectorParam.LoadGenerator([], "LoadGenerators")
+
     # Set to true if simulation provides a PSCI implementation
     # This flag will be checked when auto-generating
     # a PSCI node. A client (e.g Linux) would then be able to
@@ -130,6 +134,7 @@ class ArmSystem(System):
         for node in self.recurseDeviceTree(state):
             # Merge root nodes instead of adding them (for children
             # that need to add multiple root level nodes)
+            print(node.get_name())
             if node.get_name() == root.get_name():
                 root.merge(node)
             else:
