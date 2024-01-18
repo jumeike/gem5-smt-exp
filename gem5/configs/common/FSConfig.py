@@ -43,6 +43,8 @@ from m5.objects import *
 from m5.util import *
 from common.Benchmarks import *
 from common import ObjectList
+from enum import Enum
+# from m5.objects.load_generator_pcap import LoadGeneratorPcap
 
 # Populate to reflect supported os types per target ISA
 os_types = { 'mips'  : [ 'linux' ],
@@ -120,8 +122,8 @@ def makeSparcSystem(mem_mode, mdesc=None, cmdline=None):
     self.t1000.attachIO(self.iobus)
     self.mem_ranges = [AddrRange(Addr('1MB'), size = '64MB'),
                        AddrRange(Addr('2GB'), size ='256MB')]
-    self.bridge.master = self.iobus.slave
-    self.bridge.slave = self.membus.master
+    self.bridge.mem_side_port = self.iobus.cpu_side_ports
+    self.bridge.slave = self.membus.mem_side_port
     self.disk0 = CowMmDisk()
     self.disk0.childImage(mdesc.disks()[0])
     self.disk0.pio = self.iobus.master
@@ -160,10 +162,10 @@ def makeSparcSystem(mem_mode, mdesc=None, cmdline=None):
     self.partition_desc = SimpleMemory(image_file=binary('1up-md.bin'),
             range=AddrRange(0x1f12000000, size='8kB'))
 
-    self.rom.port = self.membus.master
-    self.nvram.port = self.membus.master
-    self.hypervisor_desc.port = self.membus.master
-    self.partition_desc.port = self.membus.master
+    self.rom.port = self.membus.mem_side_port
+    self.nvram.port = self.membus.mem_side_port
+    self.hypervisor_desc.port = self.membus.mem_side_port
+    self.partition_desc.port = self.membus.mem_side_port
 
     self.system_port = self.membus.slave
 
@@ -171,15 +173,53 @@ def makeSparcSystem(mem_mode, mdesc=None, cmdline=None):
 
     return self
 
+# SHIN. Add a parametor for multiple NIC setup (for IDIO)
 def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
                   dtb_filename=None, bare_metal=False, cmdline=None,
                   external_memory="", ruby=False, security=False,
-                  vio_9p=None, bootloader=None):
+                  vio_9p=None, bootloader=None, num_nics=1, num_loadgens=0,
+                  load_generator_type="Simple", **loadgen_kwargs):
     assert machine_type
 
     pci_devices = []
 
     self = ArmSystem()
+    self.have_crypto = True
+    
+    nics = []
+    loadgens = []
+    links = []
+
+    for i in range(num_nics):
+        nics.append(IGbE_e1000(adq_idx=i))
+
+    for i in range(num_loadgens):
+        if load_generator_type == "Simple":
+            loadgens.append(LoadGenerator(packet_rate = loadgen_kwargs['packet_rate'],
+                                          packet_size = loadgen_kwargs['packet_size'],
+                                          start_tick = loadgen_kwargs['loadgen_start'],
+                                          stop_tick = loadgen_kwargs['loadgen_stop'],
+                                          mode = loadgen_kwargs['loadgen_mode']))
+        elif load_generator_type == "Pcap":
+            loadgens.append(LoadGeneratorPcap(pcap_filename = loadgen_kwargs['loadgen_pcap_filename'],
+                                              stack_mode = loadgen_kwargs['loadgen_stack_mode'],
+                                              start_tick = loadgen_kwargs['loadgen_start'],
+                                              stop_tick = loadgen_kwargs['loadgen_stop'],
+                                              replay_mode = loadgen_kwargs['loadgen_replay_mode'],
+                                              packet_rate = loadgen_kwargs['loadgen_packet_rate'],
+                                              increment_interval = loadgen_kwargs['loadgen_increment_interval'],
+                                              port_filter = loadgen_kwargs['loadgen_port_filter']))
+        else:
+            fatal("Unknown type of the load generator")
+        links.append(EtherLink(speed = '1000Gbps'))
+        links[i].int0 = nics[i].interface
+        links[i].int1 = loadgens[i].interface
+    
+    self.nics = nics
+
+    if num_loadgens > 0:
+        self.loadgens = loadgens
+        self.links = links
 
     if not mdesc:
         # generic system
@@ -189,7 +229,7 @@ def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
     self.iobus = IOXBar()
     if not ruby:
         self.bridge = Bridge(delay='50ns')
-        self.bridge.master = self.iobus.slave
+        self.bridge.mem_side_port = self.iobus.cpu_side_ports
         self.membus = MemBus()
         self.membus.badaddr_responder.warn_access = "warn"
         self.bridge.slave = self.membus.master
@@ -218,6 +258,9 @@ def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
         self.pci_ide = IdeController(disks=disks)
         pci_devices.append(self.pci_ide)
 
+    for d in nics:
+        pci_devices.append(d)
+    
     self.mem_ranges = []
     size_remain = int(Addr(mdesc.mem()))
     for region in self.realview._mem_regions:
@@ -256,11 +299,6 @@ def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
             cmdline = 'earlyprintk=pl011,0x1c090000 console=ttyAMA0 ' + \
                       'lpj=19988480 norandmaps rw loglevel=8 ' + \
                       'mem=%(mem)s root=%(rootdev)s'
-        # if not cmdline:
-        #     # Tell Linux to use the simulated serial port as a console
-        #     cmdline = "console=ttyAMA0 " + \
-        #             "lpj=19988480 norandmaps " + \
-        #             "root=%(rootdev)s rw mem=%(mem)s"
 
         if hasattr(self.realview.gic, 'cpu_addr'):
             self.gic_cpu_addr = self.realview.gic.cpu_addr
@@ -306,7 +344,7 @@ def makeArmSystem(mem_mode, machine_type, num_cpus=1, mdesc=None,
         # I/O traffic enters iobus
         self.external_io = ExternalMaster(port_data="external_io",
                                           port_type=external_memory)
-        self.external_io.port = self.iobus.slave
+        self.external_io.port = self.iobus.cpu_side_ports
 
         # Ensure iocache only receives traffic destined for (actual) memory.
         self.iocache = ExternalSlave(port_data="iocache",
@@ -369,15 +407,15 @@ def makeLinuxMipsSystem(mem_mode, mdesc=None, cmdline=None):
     self.membus = MemBus()
     self.bridge = Bridge(delay='50ns')
     self.mem_ranges = [AddrRange('1GB')]
-    self.bridge.master = self.iobus.slave
-    self.bridge.slave = self.membus.master
+    self.bridge.mem_side_port = self.iobus.cpu_side_ports
+    self.bridge.slave = self.membus.mem_side_port
     self.disks = makeCowDisks(mdesc.disks())
     self.malta = BaseMalta()
     self.malta.attachIO(self.iobus)
     self.malta.ide.pio = self.iobus.master
-    self.malta.ide.dma = self.iobus.slave
+    self.malta.ide.dma = self.iobus.cpu_side_ports
     self.malta.ethernet.pio = self.iobus.master
-    self.malta.ethernet.dma = self.iobus.slave
+    self.malta.ethernet.dma = self.iobus.cpu_side_ports
     self.simple_disk = SimpleDisk(disk=RawDiskImage(
         image_file = mdesc.disks()[0], read_only = True))
     self.mem_mode = mem_mode
@@ -407,8 +445,8 @@ def connectX86ClassicSystem(x86_sys, numCPUs):
     # North Bridge
     x86_sys.iobus = IOXBar()
     x86_sys.bridge = Bridge(delay='50ns')
-    x86_sys.bridge.master = x86_sys.iobus.slave
-    x86_sys.bridge.slave = x86_sys.membus.master
+    x86_sys.bridge.mem_side_port = x86_sys.iobus.cpu_side_ports
+    x86_sys.bridge.slave = x86_sys.membus.mem_side_port
     # Allow the bridge to pass through:
     #  1) kernel configured PCI device memory map address: address range
     #     [0xC0000000, 0xFFFF0000). (The upper 64kB are reserved for m5ops.)
@@ -653,8 +691,8 @@ def makeBareMetalRiscvSystem(mem_mode, mdesc=None, cmdline=None):
     self.membus = MemBus()
 
     self.bridge = Bridge(delay='50ns')
-    self.bridge.master = self.iobus.slave
-    self.bridge.slave = self.membus.master
+    self.bridge.mem_side_port = self.iobus.cpu_side_ports
+    self.bridge.slave = self.membus.mem_side_port
     # Sv39 has 56 bit physical addresses; use the upper 8 bit for the IO space
     IO_address_space_base = 0x00FF000000000000
     self.bridge.ranges = [AddrRange(IO_address_space_base, Addr.max)]
@@ -669,8 +707,12 @@ def makeDualRoot(full_system, testSystem, driveSystem, dumpfile):
     self.etherlink = EtherLink()
 
     if hasattr(testSystem, 'realview'):
-        self.etherlink.int0 = Parent.testsys.realview.ethernet.interface
-        self.etherlink.int1 = Parent.drivesys.realview.ethernet.interface
+        
+        self.etherlink.int0 = Parent.testsys.nics[0].interface
+        self.etherlink.int1 = Parent.drivesys.nics[0].interface
+        # self.etherlink.int0 = Parent.testsys.realview.ethernet.interface
+        # self.etherlink.int1 = Parent.drivesys.realview.ethernet.interface
+        print("assign ethernet interfaces int0 and int1 for realview")
     elif hasattr(testSystem, 'tsunami'):
         self.etherlink.int0 = Parent.testsys.tsunami.ethernet.interface
         self.etherlink.int1 = Parent.drivesys.tsunami.ethernet.interface
@@ -693,7 +735,9 @@ def makeDistRoot(testSystem,
                  sync_start,
                  linkspeed,
                  linkdelay,
-                 dumpfile):
+                 dumpfile,
+                 num_nics=1):
+                
     self = Root(full_system = True)
     self.testsys = testSystem
 
@@ -705,16 +749,54 @@ def makeDistRoot(testSystem,
                                    server_port = server_port,
                                    sync_start = sync_start,
                                    sync_repeat = sync_repeat)
+    
+    if num_nics > 1:
+        self.local_switch = EtherSwitch(fabric_speed='100Gbps')
+        portlinks = []
 
-    if hasattr(testSystem, 'realview'):
-        self.etherlink.int0 = Parent.testsys.realview.ethernet.interface
-    elif hasattr(testSystem, 'tsunami'):
-        self.etherlink.int0 = Parent.testsys.tsunami.ethernet.interface
+        for i in range(0, num_nics):
+            portlinks.append(EtherLink(speed = linkspeed, delay = "0us"))
+            portlinks[i].int0=self.local_switch.interface[i]
+            portlinks[i].int1=Parent.testsys.nics[i].interface
+
+        self.switch = portlinks
+        self.etherlink.int0 = self.local_switch.interface[num_nics]
+
     else:
-        fatal("Don't know how to connect DistEtherLink to this system")
+        self.etherlink.int0 = Parent.testsys.nics[0].interface
 
     if dumpfile:
         self.etherdump = EtherDump(file=dumpfile)
         self.etherlink.dump = Parent.etherdump
-
     return self
+
+    # if not use_loadgen:
+    #     self.local_switch = EtherSwitch(fabric_speed='99Gbps', output_buffer_size='8MB')
+    #     portlinks = []
+        
+    #     for i in range(0, num_nics):
+    #         portlinks.append(EtherLink(speed = linkspeed, delay = "0us"))
+    #         portlinks[i].int0=self.local_switch.interface[i]
+    #     self.portlinks = portlinks
+    #     self.etherlink.int0 = self.local_switch.interface[num_nics]
+
+    #     if hasattr(testSystem, 'pc'):
+    #         self.portlink0.int1 = Parent.testsys.pc.ethernet0.interface  # x86 Implementation #
+    #         self.portlink1.int1 = Parent.testsys.pc.ethernet1.interface  # x86 Implementation #
+    #     elif hasattr(testSystem, 'realview'):
+    #         for i in range(0, num_nics):
+    #             self.portlinks[i].int1 = Parent.testsys.nics[i].interface
+            
+    #     else:
+    #         fatal("Don't know how to connect DistEtherLink to this system")
+    # else:
+    #     if hasattr(testSystem, 'realview'):
+    #         self.etherlink.int0 = Parent.testsys.realview.ethernet.interface
+    #     elif hasattr(testSystem, 'tsunami'):
+    #         self.etherlink.int0 = Parent.testsys.tsunami.ethernet.interface
+    #     else:
+    #         fatal("Don't know how to connect DistEtherLink to this system")
+    # if dumpfile:
+    #     self.etherdump = EtherDump(file=dumpfile)
+    #     self.etherlink.dump = Parent.etherdump
+    # return self

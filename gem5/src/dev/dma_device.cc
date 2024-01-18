@@ -52,6 +52,10 @@
 #include "sim/clocked_object.hh"
 #include "sim/system.hh"
 
+// SHIN. debug
+#include "debug/AdaptiveDdioNic.hh"
+#include "debug/AdaptiveDdioOtf.hh"
+
 namespace gem5
 {
 
@@ -121,6 +125,23 @@ DmaPort::DmaReqState::createPacket()
 
     PacketPtr pkt = new Packet(req, cmd);
 
+    if(is_ddio_req)
+    {
+        pkt->setDdioPrefetchId(adq_idx);
+        pkt->setDdioPrefetchDestination(adq_idx);
+        pkt->setDdioPkt();
+
+        if(adq_idx > -1)
+            pkt->setPrefetchHintPkt();
+        if(gen.isHead())
+        {
+            pkt->setDdioHeader();
+            //DPRINTF(AdaptiveDdioOtf, "Allow MLC DDIO for mlc %d, pkt %s\n", qnum, pkt->print());
+        }
+    }
+
+    
+
     if (data)
         pkt->dataStatic(data + gen.complete());
 
@@ -175,7 +196,26 @@ DmaPort::dmaAction(Packet::Command cmd, Addr addr, int size, Event *event,
                    uint8_t *data, uint32_t sid, uint32_t ssid, Tick delay,
                    Request::Flags flag)
 {
-    DPRINTF(DMA, "Starting DMA for addr: %#x size: %d sched: %d\n", addr, size,
+    AdaptiveDdioFlag empty;
+    ddioActionAdq(cmd, addr, size, event, data, sid, ssid, delay, empty, flag, false, -1);
+}
+
+void
+DmaPort::dmaAction(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, Tick delay, Request::Flags flag)
+{
+    AdaptiveDdioFlag empty;
+    ddioActionAdq(cmd, addr, size, event, data, delay, empty, flag, false, -1);
+}
+
+
+// SHIN. For IDIO
+void
+DmaPort::ddioActionAdq(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, uint32_t sid, uint32_t ssid, Tick delay, AdaptiveDdioFlag structDdioFlag, 
+                   Request::Flags flag, bool is_ddio, int qnum)
+{
+    DPRINTF(DMA, "Starting DMA(DDIO) for addr: %#x size: %d sched: %d\n", addr, size,
             event ? event->scheduled() : -1);
 
     // One DMA request sender state for every action, that is then
@@ -183,7 +223,7 @@ DmaPort::dmaAction(Packet::Command cmd, Addr addr, int size, Event *event,
     // i.e. cache line size.
     transmitList.push_back(
             new DmaReqState(cmd, addr, cacheLineSize, size,
-                data, flag, requestorId, sid, ssid, event, delay));
+                data, flag, requestorId, sid, ssid, event, delay, is_ddio, qnum));
     pendingCount++;
 
     // In zero time, also initiate the sending of the packets for the request
@@ -193,11 +233,42 @@ DmaPort::dmaAction(Packet::Command cmd, Addr addr, int size, Event *event,
 }
 
 void
-DmaPort::dmaAction(Packet::Command cmd, Addr addr, int size, Event *event,
-                   uint8_t *data, Tick delay, Request::Flags flag)
+DmaPort::ddioActionAdq(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, Tick delay, AdaptiveDdioFlag structDdioFlag, 
+                   Request::Flags flag, bool is_ddio, int qnum)
 {
-    dmaAction(cmd, addr, size, event, data,
-              defaultSid, defaultSSid, delay, flag);
+    ddioActionAdq(cmd, addr, size, event, data, defaultSid, defaultSSid, delay, structDdioFlag, flag, is_ddio, qnum);
+}
+
+void
+DmaPort::IdioAction(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, Tick delay, AdaptiveDdioFlag structDdioFlag, 
+                   Request::Flags flag, bool is_ddio, int qnum)
+{
+    ddioActionAdq(cmd, addr, size, event, data, defaultSid, defaultSSid, delay, structDdioFlag, flag, is_ddio, qnum);
+}
+
+void
+DmaPort::IdioAction(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, uint32_t sid, uint32_t ssid, Tick delay, AdaptiveDdioFlag structDdioFlag, 
+                   Request::Flags flag, bool is_ddio, int qnum)
+{
+    ddioActionAdq(cmd, addr, size, event, data, sid, ssid, delay, structDdioFlag, flag, is_ddio, qnum);
+}
+
+// SHIN. Legacy Ddio (merged to IDIO function[ddioActionAdq])
+void
+DmaPort::ddioAction(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, Tick delay, AdaptiveDdioFlag structDdioFlag, Request::Flags flag)
+{
+    ddioActionAdq(cmd, addr, size, event, data, delay, structDdioFlag, flag, true, -1);
+}
+void
+DmaPort::ddioAction(Packet::Command cmd, Addr addr, int size, Event *event,
+                   uint8_t *data, uint32_t sid, uint32_t ssid,
+                   Tick delay, AdaptiveDdioFlag structDdioFlag, Request::Flags flag)
+{
+    ddioActionAdq(cmd, addr, size, event, data, defaultSid, defaultSSid, delay, structDdioFlag, flag, true, -1);
 }
 
 void

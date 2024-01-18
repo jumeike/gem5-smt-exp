@@ -60,6 +60,8 @@ class IGbEInt;
 class IGbE : public EtherDevice
 {
   private:
+    // SHIN
+    int adq = -1;
     IGbEInt *etherInt;
 
     // device registers
@@ -141,6 +143,7 @@ class IGbE : public EtherDevice
 
     void rxStateMachine();
     void txStateMachine();
+    void updateDropFSM(int rxFifoFull, int rxRingFull, int txRingFull, int txFifoFull);
     void txWire();
 
     /** Write an interrupt into the interrupt pending register and check mask

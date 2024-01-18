@@ -60,9 +60,9 @@ class EtherLink(SimObject):
 
     int0 = EtherInt("interface 0")
     int1 = EtherInt("interface 1")
-    delay = Param.Latency('0us', "packet transmit delay")
+    delay = Param.Latency('200us', "packet transmit delay")
     delay_var = Param.Latency('0ns', "packet transmit delay variability")
-    speed = Param.NetworkBandwidth('1Gbps', "link speed")
+    speed = Param.NetworkBandwidth('100Gbps', "link speed")
     dump = Param.EtherDump(NULL, "dump object")
 
 class DistEtherLink(SimObject):
@@ -100,7 +100,7 @@ class EtherSwitch(SimObject):
     cxx_class = 'gem5::EtherSwitch'
 
     dump = Param.EtherDump(NULL, "dump object")
-    fabric_speed = Param.NetworkBandwidth('10Gbps', "switch fabric speed in "
+    fabric_speed = Param.NetworkBandwidth('1000Gbps', "switch fabric speed in "
                                           "bits per second")
     interface = VectorEtherInt("Ethernet Interface")
     output_buffer_size = Param.MemorySize('1MiB',
@@ -160,8 +160,8 @@ class IGbE(EtherDevice):
 
     hardware_address = Param.EthernetAddr(NextEthernetAddr,
         "Ethernet Hardware Address")
-    rx_fifo_size = Param.MemorySize('384KiB', "Size of the rx FIFO")
-    tx_fifo_size = Param.MemorySize('384KiB', "Size of the tx FIFO")
+    rx_fifo_size = Param.MemorySize('4096KiB', "Size of the rx FIFO")
+    tx_fifo_size = Param.MemorySize('4096KiB', "Size of the tx FIFO")
     rx_desc_cache_size = Param.Int(64,
         "Number of enteries in the rx descriptor cache")
     tx_desc_cache_size = Param.Int(64,
@@ -187,12 +187,18 @@ class IGbE(EtherDevice):
     phy_pid = Param.UInt16("Phy PID that corresponds to device ID")
     phy_epid = Param.UInt16("Phy EPID that corresponds to device ID")
 
+    # SHIN ddio
+    adq_idx = Param.Int('-1', "target mlc")
+
 class IGbE_e1000(IGbE):
     # Older Intel 8254x based gigabit ethernet adapter
     # Uses Intel e1000 driver
     DeviceID = 0x1075
     phy_pid = 0x02A8
     phy_epid = 0x0380
+
+    # SHIN.
+    adq_idx = -1
 
 class IGbE_igb(IGbE):
     # Newer Intel 8257x based gigabit ethernet adapter

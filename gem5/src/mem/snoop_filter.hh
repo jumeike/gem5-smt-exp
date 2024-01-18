@@ -89,6 +89,8 @@ namespace gem5
 class SnoopFilter : public SimObject
 {
   public:
+    // SHIN. For MlcPrefetcher
+    bool isForL3X;
 
     // Change for systems with more than 256 ports tracked by this object
     static const int SNOOP_MASK_SIZE = 256;
@@ -96,7 +98,9 @@ class SnoopFilter : public SimObject
     typedef std::vector<QueuedResponsePort*> SnoopList;
 
     SnoopFilter (const SnoopFilterParams &p) :
-        SimObject(p), reqLookupResult(cachedLocations.end()),
+        SimObject(p), 
+        isForL3X(p.is_for_l3x),        // SHIN
+        reqLookupResult(cachedLocations.end()),
         linesize(p.system->cacheLineSize()), lookupLatency(p.lookup_latency),
         maxEntryCount(p.max_capacity / p.system->cacheLineSize()),
         stats(this)

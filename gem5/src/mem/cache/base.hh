@@ -104,6 +104,12 @@ class BaseCache : public ClockedObject
         MSHRQueue_WriteBuffer
     };
 
+    // For MLC ddio
+    int mlc_idx;
+    bool isMLC;
+    bool isIOCache;
+    bool send_header_only;
+
   public:
     /**
      * Reasons for caches to be blocked.
@@ -336,6 +342,7 @@ class BaseCache : public ClockedObject
     };
 
     CpuSidePort cpuSidePort;
+    std::vector<CpuSidePort*> ddioHintPort;
     MemSidePort memSidePort;
 
   protected:
@@ -363,6 +370,10 @@ class BaseCache : public ClockedObject
 
     /** To probe when a cache fill occurs */
     ProbePointArg<PacketPtr> *ppFill;
+
+    // SHIN
+    /** To probe when a cache ddio occurs */
+    ProbePointArg<PacketPtr> *ppDdioHint;
 
     /**
      * To probe when the contents of a block are updated. Content updates
@@ -489,7 +500,7 @@ class BaseCache : public ClockedObject
      * @return Boolean indicating whether the request was satisfied.
      */
     virtual bool access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
-                        PacketList &writebacks);
+                        PacketList &writebacks, bool is_ddio = false); // SHIN
 
     /*
      * Handle a timing request that hit in the cache
@@ -785,7 +796,8 @@ class BaseCache : public ClockedObject
      * @return Pointer to the new cache block.
      */
     CacheBlk *handleFill(PacketPtr pkt, CacheBlk *blk,
-                         PacketList &writebacks, bool allocate);
+                         PacketList &writebacks, bool allocate, 
+                         bool is_ddio = false);        // SHIN
 
     /**
      * Allocate a new block and perform any necessary writebacks
@@ -799,7 +811,8 @@ class BaseCache : public ClockedObject
      * @param writebacks A list of writeback packets for the evicted blocks
      * @return the allocated block
      */
-    CacheBlk *allocateBlock(const PacketPtr pkt, PacketList &writebacks);
+    CacheBlk *allocateBlock(const PacketPtr pkt, PacketList &writebacks,
+                            bool is_ddio = false);// SHIN
     /**
      * Evict a cache block.
      *
@@ -825,7 +838,7 @@ class BaseCache : public ClockedObject
      *
      * @param blk Block to invalidate
      */
-    void invalidateBlock(CacheBlk *blk);
+    void invalidateBlock(CacheBlk *blk, bool is_llc_inv = false); // SHIN. Add llc case
 
     /**
      * Create a writeback request for the given block.
@@ -1349,6 +1362,24 @@ class BaseCache : public ClockedObject
      */
     void serialize(CheckpointOut &cp) const override;
     void unserialize(CheckpointIn &cp) override;
+
+
+    // SHIN
+    bool isLLCIOInvalid(PacketPtr pkt) {
+        return isLLC && pkt->isBlockIO() && pkt->cmd == MemCmd::InvalidateReq; 
+    }
+
+    bool isLLCisMLCIOInvalid(PacketPtr pkt) {
+        
+        return ( (isMLC  && mlc_ddio) || isLLC) && pkt->isBlockIO() && pkt->cmd == MemCmd::InvalidateReq; 
+    }
+
+    // SHIN.
+    bool ddioEnabled;
+    bool ddioDisabled;
+    int32_t ddioWayPart;
+    bool isLLC;
+    bool mlc_ddio;
 };
 
 /**

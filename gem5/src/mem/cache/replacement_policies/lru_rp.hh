@@ -55,10 +55,16 @@ class LRU : public Base
         /** Tick on which the entry was last touched. */
         Tick lastTouchTick;
 
+        // SHIN
+        /** ddio related - is this invalidated due to an IO write?*/
+        bool ioInvalidated;
+
         /**
          * Default constructor. Invalidate data.
          */
-        LRUReplData() : lastTouchTick(0) {}
+        // SHIN
+        // LRUReplData() : lastTouchTick(0) {}
+        LRUReplData() : lastTouchTick(0) , ioInvalidated(false){}
     };
 
   public:
@@ -74,6 +80,11 @@ class LRU : public Base
      */
     void invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
                                                                     override;
+
+    // SHIN
+    void invalidateDDIO(const std::shared_ptr<ReplacementData>& replacement_data)
+                                                              const override;
+
 
     /**
      * Touch an entry to update its replacement data.
@@ -101,6 +112,10 @@ class LRU : public Base
      */
     ReplaceableEntry* getVictim(const ReplacementCandidates& candidates) const
                                                                      override;
+    // SHIN
+    ReplaceableEntry* getVictimWayPart(const ReplacementCandidates& candidates,
+                                    int32_t way_part = -1) const override;
+
 
     /**
      * Instantiate a replacement data entry.

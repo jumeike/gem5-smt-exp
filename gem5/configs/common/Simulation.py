@@ -261,8 +261,16 @@ def scriptCheckpoints(options, maxtick, cptdir):
     return exit_event
 
 def benchCheckpoints(options, maxtick, cptdir):
+    # warmup cache before simulating to reduce cache miss rate
+    if options.warmup_dpdk != 0:
+        m5.simulate(options.warmup_dpdk)
+        m5.stats.dump()
+        m5.stats.reset()
+        print(f'MaxTick: {maxtick}')
+        print(f'CurTick: {m5.curTick()}')
     exit_event = m5.simulate(maxtick - m5.curTick())
     exit_cause = exit_event.getCause()
+    # m5.stats.dump()
 
     num_checkpoints = 0
     max_checkpoints = options.max_checkpoints

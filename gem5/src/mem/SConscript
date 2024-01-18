@@ -137,3 +137,11 @@ DebugFlag('TokenPort')
 DebugFlag("MemChecker")
 DebugFlag("MemCheckerMonitor")
 DebugFlag("QOS")
+
+# SHIN. IDIO Debug
+DebugFlag('IdioMlcPrefetcherSnoopFilter')
+
+# SHIN. DdioBridge
+# Simple Bridge for transmit ddio packet to MLC/LLC/Mem
+SimObject('DdioBridge.py')
+Source('ddio_bridge.cc')

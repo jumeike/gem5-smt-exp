@@ -126,6 +126,16 @@ class MSHR : public QueueEntry, public Printable
     /** True if the entry is just a simple forward from an upper level */
     bool isForward;
 
+
+    // SHIN. DDIO
+    bool wasBlockIO;
+
+    // SHIN. adq
+    int qid_from_dev;
+    bool mlc_ddio_allow;
+    bool is_ddio_pkt;
+    bool is_header;
+
     class Target : public QueueEntry::Target
     {
       public:

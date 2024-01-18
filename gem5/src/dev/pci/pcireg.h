@@ -51,7 +51,8 @@
 #include "base/bitunion.hh"
 
 BitUnion16(PciCommandRegister)
-    Bitfield<15, 10> reserved;
+    Bitfield<15,11> reserved;
+    Bitfield<10> interruptDisable;
     Bitfield<9> fastBackToBackEn;
     Bitfield<8> serrEn;
     Bitfield<7> steppingControl;

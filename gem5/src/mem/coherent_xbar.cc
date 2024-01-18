@@ -52,6 +52,10 @@
 #include "debug/CoherentXBar.hh"
 #include "sim/system.hh"
 
+
+// SHIN
+#include "debug/IdioMlcPrefetcherSnoopFilter.hh"
+
 namespace gem5
 {
 
@@ -161,6 +165,10 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
     // determine the destination based on the destination address range
     PortID mem_side_port_id = findPort(pkt->getAddrRange());
 
+    // SHIN
+    if(pkt->isPrefetchHintPkt())
+        DPRINTF(IdioMlcPrefetcherSnoopFilter, "CoherentXBar::recvTimingReq pkt %s\n", pkt->print());
+
     // test if the crossbar should be considered occupied for the current
     // port, and exclude express snoops from the check
     if (!is_express_snoop &&
@@ -230,7 +238,7 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
                     __func__, src_port->name(), pkt->print(),
                     sf_res.first.size(), sf_res.second);
 
-            if (pkt->isEviction()) {
+            if (pkt->isEviction() && !pkt->isPrefetchHintPkt()) { // SHIN
                 // for block-evicting packets, i.e. writebacks and
                 // clean evictions, there is no need to snoop up, as
                 // all we do is determine if the block is cached or
@@ -304,6 +312,9 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
 
     if (snoopFilter && snoop_caches) {
         // Let the snoop filter know about the success of the send operation
+        // SHIN
+        if(pkt->isPrefetchHintPkt())
+            DPRINTF(IdioMlcPrefetcherSnoopFilter, "CoherentXBar::recvTimingReq finishRequest %s\n", pkt->print());
         snoopFilter->finishRequest(!success, addr, pkt->isSecure());
     }
 
@@ -707,6 +718,15 @@ CoherentXBar::forwardTiming(PacketPtr pkt, PortID exclude_cpu_side_port_id,
 
     unsigned fanout = 0;
 
+    // SHIN
+    bool find = false;
+    int mlc_id = pkt->getDdioPrefetchDestination();
+    if(pkt->isPrefetchHintPkt()){
+        DPRINTF(IdioMlcPrefetcherSnoopFilter, 
+                "CoherentXBar::forwardTiming find hint. pkt %s, dest %d\n", 
+                pkt->print(), mlc_id);
+    }
+
     for (const auto& p: dests) {
         // we could have gotten this request from a snooping requestor
         // (corresponding to our own CPU-side port that is also in
@@ -717,7 +737,25 @@ CoherentXBar::forwardTiming(PacketPtr pkt, PortID exclude_cpu_side_port_id,
             // cache is not allowed to refuse snoop
             p->sendTimingSnoopReq(pkt);
             fanout++;
+
+            // SHIN
+            if(mlc_id == p->getId()){
+                DPRINTF(IdioMlcPrefetcherSnoopFilter, 
+                "CoherentXBar::forwardTiming Pass snoopFilter Included. pkt %s, dest %d\n", 
+                pkt->print(), mlc_id);
+                find = true;
+            }
         }
+    }
+
+    // SHIN
+    if(!find && mlc_id > -1)
+    {
+        DPRINTF(IdioMlcPrefetcherSnoopFilter, 
+                "CoherentXBar::forwardTiming Pass snoopFilter. pkt %s, dest %d\n", 
+                pkt->print(), mlc_id);
+        snoopPorts[mlc_id]->sendTimingSnoopReq(pkt);
+        
     }
 
     // Stats for fanout of this forward operation
@@ -771,6 +809,8 @@ CoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
             // operation, and do it even before sending it onwards to
             // avoid situations where atomic upward snoops sneak in
             // between and change the filter state
+            if(pkt->isPrefetchHintPkt())
+                DPRINTF(IdioMlcPrefetcherSnoopFilter, "CoherentXBar::recvAtomicBackdoor finishRequest %s\n", pkt->print());
             snoopFilter->finishRequest(false, pkt->getAddr(), pkt->isSecure());
 
             if (pkt->isEviction()) {
@@ -1092,6 +1132,8 @@ CoherentXBar::sinkPacket(const PacketPtr pkt) const
     //    that has promised to respond (setting the cache responding
     //    flag) is providing writable and thus had a Modified block,
     //    and no further action is needed
+    // SHIN
+    if(pkt->isPrefetchHintPktConst()) return false;
     return (pointOfCoherency && pkt->cacheResponding()) ||
         (pointOfCoherency && !(pkt->isRead() || pkt->isWrite()) &&
          !pkt->needsResponse()) ||

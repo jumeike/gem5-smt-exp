@@ -82,6 +82,9 @@ class BasePrefetcher(ClockedObject):
     use_virtual_addresses = Param.Bool(False,
         "Use virtual addresses for prefetching")
 
+    # SHIN
+    is_ddio_prefetcher = Param.Bool(False, "Notify prefetcher on ddioHint")
+
     def __init__(self, **kwargs):
         super(BasePrefetcher, self).__init__(**kwargs)
         self._events = []
@@ -527,3 +530,11 @@ class PIFPrefetcher(QueuedPrefetcher):
         if not isinstance(simObj, SimObject):
             raise TypeError("argument must be of SimObject type")
         self.addEvent(HWPProbeEventRetiredInsts(self, simObj,"RetiredInstsPC"))
+
+# SHIN.
+class MlcPrefetcher(QueuedPrefetcher):
+    type = 'MlcPrefetcher'
+    #abstract = True
+    cxx_class = 'gem5::prefetch::MlcPrefetcher'
+    cxx_header = "mem/cache/prefetch/mlc_prefetcher.hh"
+    is_ddio_prefetcher = True

@@ -90,6 +90,9 @@ class RequestPort: public Port, public AtomicRequestProtocol,
                PortID id=InvalidPortID);
     virtual ~RequestPort();
 
+    // SHIN. Trick
+    ResponsePort * getResponsePort(){return _responsePort;}
+
     /**
      * Bind this request port to a response port. This also does the
      * mirror action and binds the response port to the request port.

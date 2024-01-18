@@ -87,20 +87,59 @@ def build_test_system(np):
         test_sys = makeLinuxX86System(test_mem_mode, np, bm[0], args.ruby,
                                       cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == "arm":
-        test_sys = makeArmSystem(
-            test_mem_mode,
-            args.machine_type,
-            np,
-            bm[0],
-            args.dtb_filename,
-            bare_metal=args.bare_metal,
-            cmdline=cmdline,
-            external_memory=args.external_memory_system,
-            ruby=args.ruby,
-            security=args.enable_security_extensions,
-            vio_9p=args.vio_9p,
-            bootloader=args.bootloader,
-        )
+        if args.loadgen_type == "Simple":
+            test_sys = makeArmSystem(
+                test_mem_mode,
+                args.machine_type,
+                np,
+                bm[0],
+                args.dtb_filename,
+                bare_metal=args.bare_metal,
+                cmdline=cmdline,
+                external_memory=args.external_memory_system,
+                ruby=args.ruby,
+                security=args.enable_security_extensions,
+                vio_9p=args.vio_9p,
+                bootloader=args.bootloader,
+                num_nics=args.num_nics,
+                # Loadgens.
+                num_loadgens=args.num_loadgens,
+                load_generator_type="Simple",
+                loadgen_start=args.loadgen_start,
+                loadgen_stop=args.loadgen_stop,
+                packet_rate=args.packet_rate,
+                packet_size=args.packet_size,
+                loadgen_mode=args.loadgen_mode
+            )
+        elif args.loadgen_type == "Pcap":
+            test_sys = makeArmSystem(
+                test_mem_mode,
+                args.machine_type,
+                np,
+                bm[0],
+                args.dtb_filename,
+                bare_metal=args.bare_metal,
+                cmdline=cmdline,
+                external_memory=args.external_memory_system,
+                ruby=args.ruby,
+                security=args.enable_security_extensions,
+                vio_9p=args.vio_9p,
+                bootloader=args.bootloader,
+                num_nics=args.num_nics,
+                # Loadgens.
+                num_loadgens=args.num_loadgens,
+                loadgen_stack_mode=args.loadgen_stack,
+                load_generator_type="Pcap",
+                loadgen_pcap_filename=args.loadgen_pcap_filename,
+                loadgen_start=args.loadgen_start,
+                loadgen_stop=args.loadgen_stop,
+                loadgen_replay_mode=args.loadgen_replymode,
+                loadgen_packet_rate=args.packet_rate,
+                loadgen_increment_interval=args.loadgen_increment_interval,
+                loadgen_port_filter=args.loadgen_port_filter
+            )
+        else:
+            fatal("Unknown type of the load generator")
         if args.enable_context_switch_stats_dump:
             test_sys.enable_context_switch_stats_dump = True
     else:
@@ -166,11 +205,150 @@ def build_test_system(np):
             cpu.createInterruptController()
 
             test_sys.ruby._cpu_ports[i].connectCpuPorts(cpu)
+    # else:
+    #     if args.caches or args.l2cache or args.l3cache:
+    #         if args.perf_io:
+    #             test_sys.iocache = PerfIOCache(addr_ranges = test_sys.mem_ranges, is_iocache = True, send_header_only = args.send_header_only)
+    #         else:
+    #             test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges, is_iocache = True, send_header_only = args.send_header_only)
+            
+    #         # By default the IOCache runs at the system clock
+    #     #if args.caches or args.l3cache:     # SHIN. For L3
+    #         # By default the IOCache runs at the system clock
+    #         #test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges)
 
+    #         #test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges, is_iocache = True, send_header_only = args.send_header_only)
+    #         test_sys.iocache.cpu_side = test_sys.iobus.master
+    #         #test_sys.iocache.mem_side = test_sys.membus.slave
+
+    #         CacheConfig.config_cache(args, test_sys)
+
+    #         # mlc ddio
+    #         if args.mlc_adaptive_ddio:
+    #             if not args.ddio_enabled:
+    #                 fatal("Cannot use IDIO w/o DDIO")
+    #             test_sys.ddio_xbar = DdioBridge(do_not_pass_to_mlc = 0,
+    #                                             snoop_via_memside = 0,
+    #                                             normal_DMA_mode = 0,
+    #                                             ddio_option_app0 = 0,
+    #                                             ddio_option_app1 = 0,
+    #                                             ddio_option_app2 = 0,
+    #                                             ddio_option_app3 = 0,
+    #                                             dynamic_ddio = 0,
+    #                                             window_size = 0,
+    #                                             threshhold_otf = 0,
+    #                                             threshhold_gradchange = 0,
+    #                                             threshhold_abs = 0,
+    #                                             mlc_share = 0,
+    #                                             send_prefetch_hint = args.send_prefetch_hint,
+    #                                             send_header_only = args.send_header_only)
+
+    #             test_sys.iocache.mem_side = test_sys.ddio_xbar.cpuside
+    #             test_sys.ddio_xbar.llcside = test_sys.tol3bus.slave
+    #             test_sys.ddio_xbar.memside = test_sys.membus.slave
+
+                
+
+    #             #if options.share_l2 == 0:
+    #             for i in range(0, args.num_cpus):
+    #                 test_sys.ddio_xbar.mlcside = test_sys.cpu[i].toL2Bus.slave
+    #                 #test_sys.cpu[i].l2cache.otfport = test_sys.ddio_xbar.otfport
+
+    #             #test_sys.l3.otfport = test_sys.ddio_xbar.otfport
+    #             #else:
+    #             #    for i in range(0, options.num_cpus / 2):
+    #             #        test_sys.ddio_xbar.mlcside = test_sys.cpu[i*2].toL2Bus.slave
+    #             #        test_sys.cpu[i*2].l2cache.otfport = test_sys.ddio_xbar.otfport
+
+    #         elif args.ddio_enabled:
+    #             test_sys.ddio_xbar = DdioBridge(do_not_pass_to_mlc = 1,
+    #                                             snoop_via_memside = 0,
+    #                                             normal_DMA_mode = 0,
+    #                                             ddio_option_app0 = 0,
+    #                                             ddio_option_app1 = 0,
+    #                                             ddio_option_app2 = 0,
+    #                                             ddio_option_app3 = 0,
+    #                                             dynamic_ddio = 0,
+    #                                             window_size = 0,
+    #                                             threshhold_otf = 0,
+    #                                             threshhold_gradchange = 0,
+    #                                             threshhold_abs = 0,
+    #                                             mlc_share = 0,
+    #                                             send_prefetch_hint = args.send_prefetch_hint,
+    #                                             send_header_only = args.send_header_only)
+
+    #             test_sys.iocache.mem_side = test_sys.ddio_xbar.cpuside
+    #             test_sys.ddio_xbar.llcside = test_sys.tol3bus.slave
+    #             test_sys.ddio_xbar.memside = test_sys.membus.slave
+
+    #             #test_sys.l3.otfport = test_sys.ddio_xbar.otfport
+
+    #             #if options.share_l2 == 0:
+    #             for i in range(0, options.num_cpus):
+    #                 test_sys.ddio_xbar.mlcside = test_sys.cpu[i].toL2Bus.slave
+    #                 test_sys.cpu[i].l2cache.otfport = test_sys.ddio_xbar.otfport
+    #             #else:
+    #             #    for i in range(0, options.num_cpus / 2):
+    #             #        test_sys.ddio_xbar.mlcside = test_sys.cpu[i*2].toL2Bus.slave
+    #             #        test_sys.cpu[i*2].l2cache.otfport = test_sys.ddio_xbar.otfport
+    #         else:
+    #             test_sys.iocache.mem_side = test_sys.membus.slave
+
+    #     elif args.caches or args.l2cache:
+    #         # By default the IOCache runs at the system clock
+    #         test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges,
+    #                                     is_iocache = True,
+    #                                     ddio_disabled = args.ddio_disabled,
+    #                                     size = args.iocache_size,
+    #                                     assoc = args.iocache_assoc, tag_latency = 2,
+    #                                     data_latency = 2, response_latency = 2,
+    #                                     write_buffers = 64)
+
+    #         test_sys.iocache.cpu_side = test_sys.iobus.master
+    #         test_sys.iocache.mem_side = test_sys.membus.slave
+
+    #     else:
+    #         CacheConfig.config_cache(args, test_sys)
+    #         if not args.external_memory_system:
+    #             test_sys.iobridge = Bridge(delay='50ns', ranges = test_sys.mem_ranges)
+    #             test_sys.iobridge.slave = test_sys.iobus.master
+    #             test_sys.iobridge.master = test_sys.membus.slave
     else:
-        if args.caches or args.l2cache:
+    # -        if options.caches or options.l2cache:
+        CacheConfig.config_cache(args, test_sys)
+        if args.caches and args.l3cache and args.ddio_enabled:
             # By default the IOCache runs at the system clock
-            test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges)
+    # -     test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges)
+            test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges,
+                                    is_iocache = True,
+                                    ddio_enabled = True,
+                                    assoc = 16, tag_latency = 2,
+                                    data_latency = 2, response_latency = 2,
+                                    write_buffers = 64)
+
+            test_sys.iocache.cpu_side = test_sys.iobus.master
+            test_sys.iocache.mem_side = test_sys.tol3bus.slave
+        elif args.caches and args.l2cache and args.ddio_enabled:
+            # By default the IOCache runs at the system clock
+            test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges,
+                                    is_iocache = True,
+                                    ddio_enabled = True,
+                                    assoc = 16, tag_latency = 2,
+                                    data_latency = 2, response_latency = 2,
+                                    write_buffers = 64)
+
+            test_sys.iocache.cpu_side = test_sys.iobus.master
+            test_sys.iocache.mem_side = test_sys.tol2bus.slave
+        elif args.caches or args.l2cache:
+            # By default the IOCache runs at the system clock
+            test_sys.iocache = IOCache(addr_ranges = test_sys.mem_ranges,
+                                        is_iocache = True,
+                                        ddio_disabled = args.ddio_disabled,
+                                        size = args.iocache_size,
+                                        assoc = args.iocache_assoc, tag_latency = 2,
+                                        data_latency = 2, response_latency = 2,
+                                        write_buffers = 64)
+
             test_sys.iocache.cpu_side = test_sys.iobus.master
             test_sys.iocache.mem_side = test_sys.membus.slave
         elif not args.external_memory_system:
@@ -212,7 +390,7 @@ def build_test_system(np):
             not args.fast_forward:
             CpuConfig.config_etrace(TestCPUClass, test_sys.cpu, args)
 
-        CacheConfig.config_cache(args, test_sys)
+        #CacheConfig.config_cache(args, test_sys)
 
         MemConfig.config_mem(args, test_sys)
 
@@ -249,7 +427,7 @@ def build_drive_system(np):
                                        cmdline=cmdline)
     elif buildEnv['TARGET_ISA'] == 'arm':
         drive_sys = makeArmSystem(drive_mem_mode, args.machine_type, np,
-                                  bm[1], args.dtb_filename, cmdline=cmdline)
+                                  bm[1], args.dtb_filename, cmdline=cmdline, bootloader=args.bootloader)
 
     # Create a top-level voltage domain
     drive_sys.voltage_domain = VoltageDomain(voltage = args.sys_voltage)
@@ -345,7 +523,8 @@ elif len(bm) == 1 and args.dist:
                         args.dist_sync_start,
                         args.ethernet_linkspeed,
                         args.ethernet_linkdelay,
-                        args.etherdump);
+                        args.etherdump,
+                        args.num_cpus);      # SHIN. Easy loadgen on/off
 elif len(bm) == 1:
     root = Root(full_system=True, system=test_sys)
 else:
@@ -381,6 +560,7 @@ if buildEnv['TARGET_ISA'] == "arm" and not args.bare_metal \
             sys = getattr(root, sysname)
             sys.workload.dtb_filename = \
                 os.path.join(m5.options.outdir, '%s.dtb' % sysname)
+            print(sys.workload.dtb_filename)
             sys.generateDtb(sys.workload.dtb_filename)
 
 Simulation.setWorkCountOptions(test_sys, args)

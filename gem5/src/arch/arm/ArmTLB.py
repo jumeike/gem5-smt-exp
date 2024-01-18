@@ -45,11 +45,11 @@ class ArmTLB(BaseTLB):
     cxx_class = 'gem5::ArmISA::TLB'
     cxx_header = "arch/arm/tlb.hh"
     sys = Param.System(Parent.any, "system object parameter")
-    size = Param.Int(64, "TLB size")
+    size = Param.Int(48, "TLB size")
     is_stage2 = Param.Bool(False, "Is this a stage 2 TLB?")
 
 class ArmStage2TLB(ArmTLB):
-    size = 32
+    size = 1280
     is_stage2 = True
 
 class ArmITB(ArmTLB):

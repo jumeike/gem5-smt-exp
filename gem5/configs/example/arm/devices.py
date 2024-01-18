@@ -87,7 +87,40 @@ class L2(L2Cache):
     write_buffers = 8
     clusivity='mostly_excl'
 
+    # SHIN.
+    ddio_way_part = 4
+    is_llc = True
 
+
+# class L3(Cache):
+#     size = '16MB'
+#     assoc = 16
+#     tag_latency = 20
+#     data_latency = 20
+#     response_latency = 20
+#     mshrs = 20
+#     tgts_per_mshr = 12
+#     clusivity='mostly_excl'
+
+# SHIN. Cache types.
+# L2 Cache
+class L2MLC(Cache):
+    tag_latency = 12
+    data_latency = 12
+    response_latency = 5
+    mshrs = 32
+    tgts_per_mshr = 8
+    size = '1MB'
+    assoc = 16
+    write_buffers = 8
+    prefetch_on_access = True
+    clusivity = 'mostly_excl'
+    # Simple stride prefetcher
+    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    tags = BaseSetAssoc()
+    repl_policy = RandomRP()
+
+# L3 Cache
 class L3(Cache):
     size = '16MB'
     assoc = 16
@@ -97,7 +130,18 @@ class L3(Cache):
     mshrs = 20
     tgts_per_mshr = 12
     clusivity='mostly_excl'
+    prefetch_on_access = True
+    # Simple stride prefetcher
+    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    tags = BaseSetAssoc()
+    repl_policy = RandomRP()
+    #repl_policy = LRURP()
+    ddio_way_part = 4
+    is_llc = True
 
+
+
+    
 
 class MemBus(SystemXBar):
     badaddr_responder = BadAddr(warn_access="warn")
@@ -403,6 +447,195 @@ class SimpleSystem(BaseSimpleSystem):
 
     def attach_pci(self, dev):
         self.realview.attachPciDevice(dev, self.iobus)
+
+def idioSystem(BaseSystem, caches, mem_size, num_cores, idio, send_prefetch_hint, send_header_only, platform=None, **kwargs):
+    """
+    Create a simple system example.  The base class in configurable so
+    that it is possible (e.g) to link the platform (hardware configuration)
+    with a baremetal ArmSystem or with a LinuxArmSystem.
+    """
+    class IdioSystem(BaseSystem):
+        cache_line_size = 64
+
+        def __init__(self, caches, mem_size, num_cores, idio, send_prefetch_hint, send_header_only, platform=None, **kwargs):
+            super(IdioSystem, self).__init__(**kwargs)
+
+            self.voltage_domain = VoltageDomain(voltage="1.0V")
+            self.clk_domain = SrcClockDomain(
+                clock="1GHz",
+                voltage_domain=Parent.voltage_domain)
+
+            if platform is None:
+                self.realview = VExpress_GEM5_V1()
+            else:
+                self.realview = platform
+
+            if hasattr(self.realview.gic, 'cpu_addr'):
+                self.gic_cpu_addr = self.realview.gic.cpu_addr
+
+            self.membus = MemBus()
+
+            self.terminal = Terminal()
+            self.vncserver = VncServer()
+
+            self.iobus = IOXBar()
+            # CPUs->PIO
+            self.iobridge = Bridge(delay='50ns')
+            # Device DMA -> MEM
+            mem_range = self.realview._mem_regions[0]
+            assert int(mem_range.size()) >= int(Addr(mem_size))
+            self.mem_ranges = [
+                AddrRange(start=mem_range.start, size=mem_size) ]
+
+            self._caches = caches
+            if self._caches:
+                self.iocache = IOCache(addr_ranges=[self.mem_ranges[0]])
+            else:
+                self.dmabridge = Bridge(delay='50ns',
+                                        ranges=[self.mem_ranges[0]])
+
+            self._clusters = []
+            self._num_cpus = 0
+
+        def attach_pci(self, dev):
+            self.realview.attachPciDevice(dev, self.iobus)
+
+        def connect(self):
+            self.iobridge.mem_side_port = self.iobus.cpu_side_ports
+            self.iobridge.cpu_side_port = self.membus.mem_side_ports
+
+            if self._caches:
+                self.iocache.mem_side = self.membus.cpu_side_ports
+                self.iocache.cpu_side = self.iobus.mem_side_ports
+            else:
+                self.dmabridge.mem_side_port = self.membus.cpu_side_ports
+                self.dmabridge.cpu_side_port = self.iobus.mem_side_ports
+
+            if hasattr(self.realview.gic, 'cpu_addr'):
+                self.gic_cpu_addr = self.realview.gic.cpu_addr
+            self.realview.attachOnChipIO(self.membus, self.iobridge)
+            self.realview.attachIO(self.iobus)
+            self.system_port = self.membus.cpu_side_ports
+
+        def numCpuClusters(self):
+            return len(self._clusters)
+
+        def addCpuCluster(self, cpu_cluster, num_cpus):
+            assert cpu_cluster not in self._clusters
+            assert num_cpus > 0
+            self._clusters.append(cpu_cluster)
+            self._num_cpus += num_cpus
+
+        def numCpus(self):
+            return self._num_cpus
+
+        def addCaches(self, need_caches, last_cache_level):
+            if not need_caches:
+                # connect each cluster to the memory hierarchy
+                for cluster in self._clusters:
+                    cluster.connectMemSide(self.membus)
+                return
+
+            cluster_mem_bus = self.membus
+            assert last_cache_level >= 1 and last_cache_level <= 3
+            for cluster in self._clusters:
+                cluster.addL1()
+            if last_cache_level > 1:
+                for cluster in self._clusters:
+                    cluster.addL2(cluster.clk_domain)
+            if last_cache_level > 2:
+                max_clock_cluster = max(self._clusters,
+                                        key=lambda c: c.clk_domain.clock[0])
+                self.l3 = L3(clk_domain=max_clock_cluster.clk_domain)
+                self.toL3Bus = L2XBar(width=64)
+                self.toL3Bus.mem_side_ports = self.l3.cpu_side
+                self.l3.mem_side = self.membus.cpu_side_ports
+                cluster_mem_bus = self.toL3Bus
+
+            # connect each cluster to the memory hierarchy
+            for cluster in self._clusters:
+                cluster.connectMemSide(cluster_mem_bus)
+        
+        def ddioCaches(self, idio, num_cores, send_prefetch_hint, send_header_only):
+            self.iocache = IOCache(addr_ranges=[self.mem_ranges[0]])
+
+            max_clock_cluster = max(self._clusters,
+                                        key=lambda c: c.clk_domain.clock[0])
+            self.l3 = L3(clk_domain=max_clock_cluster.clk_domain)
+            self.toL3Bus = L2XBar(width=64)
+            self.toL3Bus.mem_side_ports = self.l3.cpu_side
+            self.l3.mem_side = self.membus.cpu_side_ports
+            cluster_mem_bus = self.toL3Bus
+            for cluster in self._clusters:
+                cluster.connectMemSide(cluster_mem_bus)
+
+            if idio:
+                self.ddio_xbar = DdioBridge(do_not_pass_to_mlc = 0,
+                                                snoop_via_memside = 0,
+                                                normal_DMA_mode = 0,
+                                                ddio_option_app0 = 0,
+                                                ddio_option_app1 = 0,
+                                                ddio_option_app2 = 0,
+                                                ddio_option_app3 = 0,
+                                                dynamic_ddio = 0,
+                                                window_size = 0,
+                                                threshhold_otf = 0,
+                                                threshhold_gradchange = 0,
+                                                threshhold_abs = 0,
+                                                mlc_share = 0,
+                                                send_prefetch_hint = send_prefetch_hint,
+                                                send_header_only = send_header_only)
+
+                self.iocache.mem_side = self.ddio_xbar.cpuside
+                self.ddio_xbar.llcside = self.toL3Bus.slave
+                self.ddio_xbar.memside = self.membus.slave
+
+                #test_sys.l3.otfport = test_sys.ddio_xbar.otfport
+
+                #if options.share_l2 == 0: self._clusters
+                for i in range(0, num_cores):
+                    self.ddio_xbar.mlcside = self.cpus[i].toL2Bus.slave
+                    #test_sys.cpu[i].l2cache.otfport = test_sys.ddio_xbar.otfport
+                #else:
+                #    for i in range(0, options.num_cpus / 2):
+                #        test_sys.ddio_xbar.mlcside = test_sys.cpu[i*2].toL2Bus.slave
+                #        test_sys.cpu[i*2].l2cache.otfport = test_sys.ddio_xbar.otfport
+
+            else :
+                self.ddio_xbar = DdioBridge(do_not_pass_to_mlc = 1,
+                                                snoop_via_memside = 0,
+                                                normal_DMA_mode = 0,
+                                                ddio_option_app0 = 0,
+                                                ddio_option_app1 = 0,
+                                                ddio_option_app2 = 0,
+                                                ddio_option_app3 = 0,
+                                                dynamic_ddio = 0,
+                                                window_size = 0,
+                                                threshhold_otf = 0,
+                                                threshhold_gradchange = 0,
+                                                threshhold_abs = 0,
+                                                mlc_share = 0,
+                                                send_prefetch_hint = send_prefetch_hint,
+                                                send_header_only = send_header_only)
+
+                self.iocache.mem_side = self.ddio_xbar.cpuside
+                self.ddio_xbar.llcside = self.toL3bus.slave
+                self.ddio_xbar.memside = self.membus.slave
+
+                #test_sys.l3.otfport = test_sys.ddio_xbar.otfport
+
+                #if options.share_l2 == 0:
+                for i in range(0, num_cores):
+                    self.ddio_xbar.mlcside = self.cpus[i].toL2Bus.slave
+                    #test_sys.cpu[i].l2cache.otfport = test_sys.ddio_xbar.otfport
+                #else:
+                #    for i in range(0, options.num_cpus / 2):
+                #        test_sys.ddio_xbar.mlcside = test_sys.cpu[i*2].toL2Bus.slave
+                #        test_sys.cpu[i*2].l2cache.otfport = test_sys.ddio_xbar.otfport
+
+    return IdioSystem(caches, mem_size, num_cores, idio, send_prefetch_hint, send_header_only, platform, **kwargs)
+
+
 
 class ArmRubySystem(BaseSimpleSystem):
     """

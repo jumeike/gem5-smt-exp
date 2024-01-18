@@ -195,3 +195,46 @@ class L2(Cache):
     prefetcher = StridePrefetcher(degree=8, latency = 1)
     tags = BaseSetAssoc()
     replacement_policy = RandomRP()
+
+    # SHIN. To do... Maybe Not used.
+    ddio_way_part = 4
+    is_llc = True
+
+
+# SHIN. Cache types.
+# L2 Cache
+class L2MLC(Cache):
+    tag_latency = 4
+    data_latency = 4
+    response_latency = 4
+    mshrs = 16
+    tgts_per_mshr = 8
+    size = '256kB'
+    assoc = 8
+    write_buffers = 8
+    prefetch_on_access = True
+    clusivity = 'mostly_excl'
+    # Simple stride prefetcher
+    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    tags = BaseSetAssoc()
+    repl_policy = RandomRP()
+
+# L3 Cache
+class L3(Cache):
+    tag_latency = 12
+    data_latency = 12
+    response_latency = 12
+    mshrs = 40
+    tgts_per_mshr = 8
+    size = '1MB' #'32MB'
+    assoc = 16
+    write_buffers = 8
+    prefetch_on_access = True
+    clusivity = 'mostly_excl'
+    # Simple stride prefetcher
+    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    tags = BaseSetAssoc()
+    repl_policy = RandomRP()
+    #repl_policy = LRURP()
+    ddio_way_part = 4
+    is_llc = True

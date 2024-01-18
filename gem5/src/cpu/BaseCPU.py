@@ -224,6 +224,35 @@ class BaseCPU(ClockedObject):
             if self.checker != NULL:
                 self._cached_ports += [ "checker." + port
                     for port in ArchMMU.walkerPorts() ]
+    
+    def addPrivateMergedL1Caches(self, ic1, dc1, ic2, dc2, cpu, iwc = None, dwc = None):
+        self.icache = ic1
+        self.dcache = dc1
+        cpu.icache = ic2
+        cpu.dcache = dc2
+        self.icache_port = ic1.cpu_side
+        self.dcache_port = dc1.cpu_side
+        cpu.icache_port = ic2.cpu_side
+        cpu.dcache_port = dc2.cpu_side
+        self._cached_ports = ['icache.mem_side', 'dcache.mem_side']
+        cpu._cached_ports = ['icache.mem_side', 'dcache.mem_side']
+        if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv']:
+            if iwc and dwc:
+                self.itb_walker_cache = iwc
+                self.dtb_walker_cache = dwc
+                self.mmu.connectWalkerPorts(
+                    iwc.cpu_side, dwc.cpu_side)
+                self._cached_ports += ["itb_walker_cache.mem_side", \
+                                       "dtb_walker_cache.mem_side"]
+            else:
+                self._cached_ports += ArchMMU.walkerPorts()
+                cpu._cached_ports += ArchMMU.walkerPorts()
+
+            # Checker doesn't need its own tlb caches because it does
+            # functional accesses only
+            if self.checker != NULL:
+                self._cached_ports += [ "checker." + port
+                    for port in ArchMMU.walkerPorts() ]
 
     def addTwoLevelCacheHierarchy(self, ic, dc, l2c, iwc=None, dwc=None,
                                   xbar=None):
@@ -233,6 +262,17 @@ class BaseCPU(ClockedObject):
         self.l2cache = l2c
         self.toL2Bus.mem_side_ports = self.l2cache.cpu_side
         self._cached_ports = ['l2cache.mem_side']
+
+    def addTwoLevelCacheHierarchyMerged(self, ic1, dc1, ic2, dc2, cpu, l2c, iwc=None, dwc=None,
+                                  xbar=None):
+        self.addPrivateMergedL1Caches(ic1, dc1, ic2, dc2, cpu, iwc, dwc)
+        self.toL2Bus = xbar if xbar else L2XBar()
+        self.connectCachedPorts(self.toL2Bus)
+        cpu.connectCachedPorts(self.toL2Bus)
+        self.l2cache = l2c
+        self.toL2Bus.mem_side_ports = self.l2cache.cpu_side
+        self._cached_ports = ['l2cache.mem_side']
+        cpu._cached_ports = ['l2cache.mem_side']
 
     def createThreads(self):
         # If no ISAs have been created, assume that the user wants the
@@ -286,6 +326,8 @@ class BaseCPU(ClockedObject):
                      "system or multiple CPUs may not start")
 
             freq = int(self.clk_domain.unproxy(self).clock[0].frequency)
+            print("freq!!")
+            print(freq)
             node.append(FdtPropertyWords("clock-frequency", freq))
 
             # Unique key for this CPU

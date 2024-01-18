@@ -103,6 +103,24 @@ class ListPlatform(argparse.Action):
 
 
 def addNoISAOptions(parser):
+    parser.add_argument("--perf-io", type=str, default="False")
+    parser.add_argument("--num-nics", type=int, default=1)
+    # For all loadgens:
+    parser.add_argument("--num-loadgens", type=int, default=0)
+    parser.add_argument("--loadgen-type", type=str, default="Simple")
+    parser.add_argument("--packet-rate", type=int, default=1)
+    parser.add_argument("--loadgen-start", type=int, default=1)
+    parser.add_argument("--loadgen-stop", type=int, default=m5.MaxTick)
+    # For Simple loadgen:
+    parser.add_argument("--loadgen-mode", type=str, default="Static")
+    parser.add_argument("--packet-size", type=int, default=128)
+    # For Pcap loadgen:
+    parser.add_argument("--loadgen-stack", type=str, default="KernelStack")
+    parser.add_argument("--loadgen_pcap_filename", type=str, default="")
+    parser.add_argument("--loadgen-replymode", type=str, default="ReplyAndAdjustThroughput")
+    parser.add_argument("--loadgen-port-filter", type=int, default=1)
+    parser.add_argument("--loadgen-increment-interval", type=int, default=1)
+
     parser.add_argument("-n", "--num-cpus", type=int, default=1)
     parser.add_argument("--sys-voltage", action="store", type=str,
                         default='1.0V',
@@ -141,6 +159,7 @@ def addNoISAOptions(parser):
                         help="use external port for SystemC TLM cosimulation")
     parser.add_argument("--caches", action="store_true")
     parser.add_argument("--l2cache", action="store_true")
+    parser.add_argument("--l3cache", action="store_true")     # SHIN. Add an L3 option
     parser.add_argument("--num-dirs", type=int, default=1)
     parser.add_argument("--num-l2caches", type=int, default=1)
     parser.add_argument("--num-l3caches", type=int, default=1)
@@ -245,9 +264,6 @@ def addCommonOptions(parser):
                       Only used if multiple programs are specified. If true,
                       then the number of threads per cpu is same as the
                       number of programs.""")
-    parser.add_argument("--num-threads", action="store", type=int,
-                        default='4',
-                        help="Number of HW Context when using DerivO3CPU only")
     parser.add_argument(
         "--elastic-trace-en", action="store_true",
         help="""Enable capture of data dependency and instruction
@@ -293,16 +309,18 @@ def addCommonOptions(parser):
         help="Repeat interval for synchronisation barriers among "
         "dist-gem5 processes\nDEFAULT: --ethernet-linkdelay")
     parser.add_argument(
-        "--dist-sync-start", default="5200000000000t", action="store",
+        "--dist-sync-start", default="10000000000t", action="store",
         type=str,
         help="Time to schedule the first dist synchronisation barrier\n"
-        "DEFAULT:5200000000000t")
-    parser.add_argument("--ethernet-linkspeed", default="10Gbps",
+        "DEFAULT:10000000000t")
+    parser.add_argument("--ethernet-linkspeed", default="1000Gbps",
                         action="store", type=str,
                         help="Link speed in bps\nDEFAULT: 10Gbps")
     parser.add_argument("--ethernet-linkdelay", default="10us",
                         action="store", type=str,
                         help="Link delay in seconds\nDEFAULT: 10us")
+
+ 
 
     # Run duration options
     parser.add_argument("-I", "--maxinsts", action="store", type=int,
@@ -321,6 +339,8 @@ def addCommonOptions(parser):
     parser.add_argument("--init-param", action="store", type=int, default=0,
                         help="""Parameter available in simulation with m5
                               initparam""")
+    parser.add_argument("--init-param-drive", action="store", type=int, default=1)
+
     parser.add_argument(
         "--initialize-only", action="store_true", default=False,
         help="""Exit after initialization. Do not simulate time.
@@ -415,6 +435,100 @@ def addCommonOptions(parser):
         "that are present under any of the roots. If not given, dump all "
         "stats. ")
 
+    parser.add_argument(
+        "--warmup-dpdk", action="store", type=int, default=0,
+        help="Warmup period in ticks (requires --standard-switch)")
+    
+    # SHIN. DDIO(and IDIO) related
+    parser.add_argument("--ddio-disabled", action="store_true",
+                      help="DDIO is disabled")
+
+    parser.add_argument("--ddio-enabled", action="store_true",
+                      help="Enable DDIO")
+    parser.add_argument("--ddio-way-part", action="store", type=int,
+        help="way partion of ddio - if set to 0 ddio can use the entire llc", default=0)
+    parser.add_argument("--iocache_size", type=str, default="1kB")
+    parser.add_argument("--iocache_assoc", type=int, default=16)
+
+    # SHIN. DDIO pass to MLC/LLC/Mem
+    parser.add_argument("--mlc-adaptive-ddio", action="store_true", help="Enable MLC/LLC/Mem bypass")
+    parser.add_argument("--disable-snoop-filter", action="store_true")
+
+    # SHIN. Adaptive DDIO test option
+    parser.add_argument("--do-not-pass-to-mlc", action="store_true", default=False,
+                        help="For testing. Do not send to MLC from DdioBridge")
+    parser.add_argument("--snoop-via-memside", action="store_true", default=False,
+                        help="For testing. Using memsideport for snooping on DdioBridge")
+    parser.add_argument("--normal-dma-mode", action="store_true", default=False,
+                        help="For testing. Ignore all masterport except memside")
+
+    # SHIN. AdpativeDDIO test option
+    # parser.add_argument("--ddio-flag", action="store", type=int, help="DDIO path test option")
+    parser.add_argument("--tracefile0", action="store", type=str, default='', help = "For timer")
+    parser.add_argument("--tracefile1", action="store", type=str, default='', help = "For timer")
+    parser.add_argument("--tracefile2", action="store", type=str, default='', help = "For timer")
+    parser.add_argument("--tracefile3", action="store", type=str, default='', help = "For timer")
+
+    parser.add_argument("--use-loadgenerator", action="store_true", help="Enable Usegen")
+
+
+    # SHIN. Run APP option
+    #parser.add_argument("--workloads", action="store", type=int, help="App option")
+
+    # # SHIN. WordCount Text
+    # parser.add_argument("--wordcount0", action="store", type=str, default='', help = "For WordCount")
+    # parser.add_argument("--wordcount1", action="store", type=str, default='', help = "For WordCount")
+    # parser.add_argument("--wordcount2", action="store", type=str, default='', help = "For WordCount")
+    # parser.add_argument("--wordcount3", action="store", type=str, default='', help = "For WordCount")
+
+    # # SHIN. Key-Value Store
+    # parser.add_argument("--keyvalue0", action="store", type=str, default='', help = "For Key-Value Store")
+    # parser.add_argument("--keyvalue1", action="store", type=str, default='', help = "For Key-Value Store")
+    # parser.add_argument("--keyvalue2", action="store", type=str, default='', help = "For Key-Value Store")
+    # parser.add_argument("--keyvalue3", action="store", type=str, default='', help = "For Key-Value Store")
+
+    # parser.add_argument("--searchtree0", action="store", type=str, default='', help = "For Loading SearchTree of Key-Value Store")
+    # parser.add_argument("--searchtree1", action="store", type=str, default='', help = "For Loading SearchTree of Key-Value Store")
+    # parser.add_argument("--searchtree2", action="store", type=str, default='', help = "For Loading SearchTree of Key-Value Store")
+    # parser.add_argument("--searchtree3", action="store", type=str, default='', help = "For Loading SearchTree of Key-Value Store")
+
+    # # SHIN. Workload RPS
+    # parser.add_argument("--rps0", action="store", type=int, help="Workload RPS")
+    # parser.add_argument("--rps1", action="store", type=int, help="Workload RPS")
+    # parser.add_argument("--rps2", action="store", type=int, help="Workload RPS")
+    # parser.add_argument("--rps3", action="store", type=int, help="Workload RPS")
+
+    # # SHIN. WarmUp RPS
+    # parser.add_argument("--rps0warmup", action="store", type=int, help="Warmup RPS")
+    # parser.add_argument("--rps1warmup", action="store", type=int, help="Warmup RPS")
+    # parser.add_argument("--rps2warmup", action="store", type=int, help="Warmup RPS")
+    # parser.add_argument("--rps3warmup", action="store", type=int, help="Warmup RPS")
+
+    # # SHIN. WarmUp Time
+    # parser.add_argument("--warmuptime0", action="store", type=int, help="Warmup Time")
+    # parser.add_argument("--warmuptime1", action="store", type=int, help="Warmup Time")
+    # parser.add_argument("--warmuptime2", action="store", type=int, help="Warmup Time")
+    # parser.add_argument("--warmuptime3", action="store", type=int, help="Warmup Time")
+
+    # SHIN. Dynamic
+    parser.add_argument("--ddio_option_app0", action="store", type=int, help="Ddio Options")
+    parser.add_argument("--ddio_option_app1", action="store", type=int, help="Ddio Options")
+    parser.add_argument("--ddio_option_app2", action="store", type=int, help="Ddio Options")
+    parser.add_argument("--ddio_option_app3", action="store", type=int, help="Ddio Options")
+    parser.add_argument("--dynamic_ddio", action="store", type=int, help="Ddio Options")
+
+    parser.add_argument("--window_size", action="store", type=int, help="Window size for Forworad select (us)")
+    parser.add_argument("--threshhold_otf", action="store", type=float, help="Thresh hold for bypass cache")
+    parser.add_argument("--threshhold_gradchange", action="store", type=float, help="Thresh hold for bypass cache")
+    parser.add_argument("--threshhold_abs", action="store", type=float, help="Thresh hold for bypass cache")
+
+    # SHIN. Pesudo SMT
+    parser.add_argument("--share-l2", action="store", type=int, help="Enable MLC/LLC/Mem bypass")
+
+    # SHIN. Prefetcher hint
+    parser.add_argument("--send-prefetch-hint", action="store", type=int, help="Enable MLC Prefetchermode")
+    parser.add_argument("--send-header-only", action="store", type=int, help="Send Hint Only")
+
 
 def addSEOptions(parser):
     # Benchmark options
@@ -477,6 +591,9 @@ def addFSOptions(parser):
                         default="linux",
                         help="Specifies type of OS to boot")
     parser.add_argument("--script", action="store", type=str)
+    parser.add_argument("--drivenode-script", action="store", type=str, 
+        help="specifies the script to be loaded in the drive_system for "
+        "dual mode gem5")
     parser.add_argument(
         "--frame-capture", action="store_true",
         help="Stores changed frame buffers from the VNC server to compressed "
