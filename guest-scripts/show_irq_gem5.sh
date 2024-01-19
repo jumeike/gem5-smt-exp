@@ -1,6 +1,15 @@
 #!/bin/bash
 
 
+if [ -z $1 ]; then
+        echo "usage: $0 <cpu list> "
+        echo "       <cpu list> can be either a comma separated list of single core numbers (0,1,2,3) or core groups (0-3)"
+        exit 1
+fi
+cpulist=$1
+NCPUS=$(cat /proc/cpuinfo | grep -c processor)
+ONLINE_CPUS=$(cat /proc/cpuinfo | grep processor | cut -d ":" -f 2)
+
 interface=eth0
 pci_dev=$(ethtool -i $interface | grep "bus-info:" | cut -d ' ' -f 2)
 infiniband_device_irqs_path="/sys/class/infiniband/$interface/device/msi_irqs"
@@ -22,6 +31,11 @@ else
 fi
 IRQS=$(echo "$irq_list" | sort -g)
 echo "$IRQS"
+
+if [ -z "$IRQS" ] ; then
+        echo No IRQs found for $interface.
+        exit 1
+fi
 
 # assigning the IRQs to the cores
 
