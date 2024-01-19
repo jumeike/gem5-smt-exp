@@ -118,7 +118,7 @@ if [[ -n "$checkpoint" ]]; then
   GEM5TYPE="fast"
   # DEBUG_FLAGS="--debug-flags=O3CPUAll"
   CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="--max-checkpoints 1 -r 1 --cpu-clock=$Freq --caches --smt --l3cache --l2cache" \
+  CONFIGARGS="--max-checkpoints 1 --cpu-clock=$Freq -r 1 --caches --smt --l2cache" \
   # --param=system.cpu[0:4].smtNumFetchingThreads=$smt_fetching_threads --param=system.cpu[0:4].numPhysVecPredRegs=$(($num_cores*$num_threads*32)) \
   # --param=system.cpu[0:4].numROBEntries=64 --param=system.cpu[0:4].numIQEntries=60 \
   # --param=system.cpu[0:4].LQEntries=64 --param=system.cpu[0:4].SQEntries=64"
