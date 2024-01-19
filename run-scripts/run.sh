@@ -35,8 +35,8 @@ function setup_dirs {
 
 function run_simulation {
   "$GEM5_DIR/build/ARM/gem5.$GEM5TYPE" $DEBUG_FLAGS --outdir="$RUNDIR" \
-  "$GEM5_DIR"/configs/example/fs_smt.py --cpu-type=$CPUTYPE \
-  --kernel="$RESOURCES/binaries/vmlinux.arm64" --disk="$RESOURCES/disks/expanded-ubuntu-18.04-arm64-docker.img" --bootloader="$RESOURCES/binaries/boot.arm64" --root=/dev/sda1 \
+  "$GEM5_DIR"/configs/example/fs.py --cpu-type=$CPUTYPE \
+  --kernel="$RESOURCES/vmlinux" --disk="$RESOURCES/rootfs.ext2" --bootloader="$RESOURCES/boot.arm64" --root=/dev/sda \
   --num-cpus=$(($num_cores)) --mem-type=DDR4_2400_16x4 --mem-channels=1 --mem-size=512MB --script="$GUEST_SCRIPT_DIR/$GUEST_SCRIPT" \
   --checkpoint-dir="$CKPT_DIR" $CONFIGARGS
 }
@@ -47,9 +47,9 @@ if [[ -z "${GIT_ROOT}" ]]; then
 fi
 
 GEM5_DIR=${GIT_ROOT}/gem5
-RESOURCES=${GIT_ROOT}/m5_binaries
-# RESOURCES=${GIT_ROOT}/resources
-GUEST_SCRIPT_DIR=${GIT_ROOT}/rcS/single/test_progs
+# RESOURCES=${GIT_ROOT}/m5_binaries
+RESOURCES=${GIT_ROOT}/resources
+GUEST_SCRIPT_DIR=${GIT_ROOT}/guest-scripts/
 
 # parse command line arguments
 TEMP=$(getopt -o 'h' --long take-checkpoint,num-cores:,script:,num-threads:,num-smt-fetching-threads:,smt-mode,freq:,help -n 'gem5-smt' -- "$@")
@@ -115,13 +115,13 @@ if [[ -n "$checkpoint" ]]; then
   RUNDIR=${GIT_ROOT}/rundir/"num-cores-"$num_cores"-num-threads-"$num_threads-$GUEST_SCRIPT
   setup_dirs
   echo "Taking Checkpoint for workload=$GUEST_SCRIPT" >&2
-  GEM5TYPE="opt"
-  DEBUG_FLAGS="--debug-flags=O3CPUAll"
-  CPUTYPE="DerivO3CPU"
-  CONFIGARGS="--max-checkpoints 1 --maxinsts 1 --cpu-clock=$Freq --caches --num-threads=$num_threads \
-  --param=system.cpu[0:1].smtNumFetchingThreads=$smt_fetching_threads --param=system.cpu[0:1].numPhysVecPredRegs=$(($num_cores*$num_threads*32)) \
-  --param=system.cpu[0:1].numROBEntries=64 --param=system.cpu[0:1].numIQEntries=60 \
-  --param=system.cpu[0:1].LQEntries=64 --param=system.cpu[0:1].SQEntries=64"
+  GEM5TYPE="fast"
+  # DEBUG_FLAGS="--debug-flags=O3CPUAll"
+  CPUTYPE="AtomicSimpleCPU"
+  CONFIGARGS="--max-checkpoints 1 -r 1 --cpu-clock=$Freq --caches --smt --l3cache --l2cache" \
+  # --param=system.cpu[0:4].smtNumFetchingThreads=$smt_fetching_threads --param=system.cpu[0:4].numPhysVecPredRegs=$(($num_cores*$num_threads*32)) \
+  # --param=system.cpu[0:4].numROBEntries=64 --param=system.cpu[0:4].numIQEntries=60 \
+  # --param=system.cpu[0:4].LQEntries=64 --param=system.cpu[0:4].SQEntries=64"
   # CONFIGARGS="--max-checkpoints 1 -r 1 --cpu-clock=$Freq --loadgen-start=2628842328231400"
   run_simulation
   exit 0
