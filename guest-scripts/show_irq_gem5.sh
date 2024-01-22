@@ -15,8 +15,8 @@ echo "********* Setting up the interface (eth0) ************"
 ip link set $interface up
 
 # Display IRQ information related to eth0
-# echo "********* IRQ Information ************"
-# grep $interface /proc/interrupts
+echo "********* IRQ Information ************"
+grep $interface /proc/interrupts
 
 interrupts_output=$(grep $interface /proc/interrupts)
 interface_irqs=$(echo "$interrupts_output" | awk '{print $1}' | tr -d ':') # Remove colons
@@ -50,4 +50,4 @@ for irq in $interface_irqs; do
     cat /proc/irq/"$irq"/smp_affinity
 done
 
-echo "Script execution complete!"
+m5 exit

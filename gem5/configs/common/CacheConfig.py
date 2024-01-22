@@ -451,7 +451,7 @@ def config_cache(options, system):
                 continue
             else:
                 system.cpu[i].connectAllPorts(system.tol3bus, system.membus)
-            # system.cpu[i+1].connectAllPorts(system.tol3bus, system.membus)
+                # system.cpu[i+1].connectAllPorts(system.tol3bus, system.membus)
         elif options.l2cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
             # system.cpu[i+1].connectAllPorts(system.tol2bus, system.membus)

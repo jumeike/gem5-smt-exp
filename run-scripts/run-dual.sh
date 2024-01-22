@@ -1,5 +1,6 @@
 #!/bin/bash
 #wbWidth=4 causes error when you run
+export GIT_ROOT=$(pwd)/..
 CACHE_CONFIG="--caches --l2cache --l3cache --l3_size 16MB --l3_assoc 16 --ddio-enabled --l1i_size=64kB --l1i_assoc=4 \
 --l1d_size=64kB --l1d_assoc=4 --l2_size=1MB --l2_assoc=8 --cacheline_size=64" 
 CPU_CONFIG="--param=testsys.cpu[0:4].l2cache.mshrs=46 --param=testsys.cpu[0:4].dcache.mshrs=20 \
@@ -31,9 +32,9 @@ function setup_dirs {
 
 function run_simulation {
   "$GEM5_DIR/build/ARM/gem5.$GEM5TYPE" $DEBUG_FLAGS --outdir="$RUNDIR" \
-  "$GEM5_DIR"/configs/example/fs_dual.py --dual --cpu-type=$CPUTYPE \
+  "$GEM5_DIR"/configs/example/fs_dual.py --dual --smt --cpu-type=$CPUTYPE \
   --kernel="$RESOURCES/vmlinux"  --disk="$RESOURCES/rootfs.ext2" --bootloader="$RESOURCES/boot.arm64" --root=/dev/sda \
-  --num-cpus=$(($num_nics+1)) --mem-type=DDR4_2400_16x4 --mem-channels=4 --mem-size=8192MB --script="$GUEST_SCRIPT_DIR/$GUEST_SCRIPT" \
+  --num-cpus=$(($num_nics+1)) --mem-type=DDR4_2400_16x4 --mem-channels=1 --mem-size=512MB --script="$GUEST_SCRIPT_DIR/$GUEST_SCRIPT" \
   --drivenode-script="$GUEST_SCRIPT_DIR/$DRIVE_SCRIPT" --checkpoint-dir="$CKPT_DIR" $CONFIGARGS --num-work-ids 0
 }
 
@@ -44,7 +45,7 @@ fi
 
 GEM5_DIR=${GIT_ROOT}/gem5
 # RESOURCES=${GIT_ROOT}/resources-new
-RESOURCES=${GIT_ROOT}/resources-pktgen-pkt
+RESOURCES=${GIT_ROOT}/resources
 GUEST_SCRIPT_DIR=${GIT_ROOT}/guest-scripts
 
 # parse command line arguments
@@ -99,8 +100,8 @@ if [[ -z "$num_nics" ]]; then
 fi
 
 if [[ -n "$checkpoint" ]]; then
-  # RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC-ckp"-$GUEST_SCRIPT
-  RUNDIR=${GIT_ROOT}/rundir/ISPASS-2024-buildroot-2023/$num_nics"NIC-ckp"-$DRIVE_SCRIPT
+  RUNDIR=${GIT_ROOT}/rundir/$num_nics"NIC-ckp"-$GUEST_SCRIPT
+  # RUNDIR=${GIT_ROOT}/rundir/ISPASS-2024-buildroot-2023/$num_nics"NIC-ckp"-$DRIVE_SCRIPT
   setup_dirs
   echo "Taking Checkpoint for NICs=$num_nics" >&2
   GEM5TYPE="fast"
@@ -108,7 +109,7 @@ if [[ -n "$checkpoint" ]]; then
   # packet-size = 0 leads to segfault
   PACKET_SIZE=128
   CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="--max-checkpoints 4 --cpu-clock=$Freq"
+  CONFIGARGS="--max-checkpoints 4 -r 1 --caches --l2cache --l3cache --cpu-clock=$Freq"
   # CONFIGARGS="-r 1 --max-checkpoints 3 --cpu-clock=$Freq"
   run_simulation > ${RUNDIR}/simout
   exit 0
