@@ -1,16 +1,16 @@
-# Define the interface name
+# # Define the interface name
 interface="eth0"
-# Check if the interface exists
-# if ! ip link show "$interface" >/dev/null 2>&1; then
-#     echo "Error: Interface \"$interface\" does not exist."
-#     exit 1
-# fi
+# # Check if the interface exists
+# # if ! ip link show "$interface" >/dev/null 2>&1; then
+# #     echo "Error: Interface \"$interface\" does not exist."
+# #     exit 1
+# # fi
 
-# Display information about network interfaces
-# echo "********* Interfaces Information ************"
-# ip a
+# # Display information about network interfaces
+#  echo "********* Interfaces Information ************"
+# # ip a
 
-# Set up the interface eth0
+# # Set up the interface eth0
 echo "********* Setting up the interface (eth0) ************"
 ip link set $interface up
 

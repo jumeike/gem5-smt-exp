@@ -1,6 +1,0 @@
-[submodule "SecSMT_Artifact"]
-	path = SecSMT_Artifact
-	url = https://github.com/mktrm/SecSMT_Artifact.git
-[submodule "snuece_adv_architecture"]
-	path = snuece_adv_architecture
-	url = https://github.com/kssteven418/snuece_adv_architecture.git

@@ -115,10 +115,12 @@ if [[ -n "$checkpoint" ]]; then
   RUNDIR=${GIT_ROOT}/rundir/"num-cores-"$num_cores"-num-threads-"$num_threads-$GUEST_SCRIPT
   setup_dirs
   echo "Taking Checkpoint for workload=$GUEST_SCRIPT" >&2
-  GEM5TYPE="fast"
-  # DEBUG_FLAGS="--debug-flags=O3CPUAll"
-  CPUTYPE="AtomicSimpleCPU"
-  CONFIGARGS="--max-checkpoints 1 -r 1 --cpu-clock=$Freq --caches --smt-model --num-nics 1 --l3cache --l2cache" \
+  # GEM5TYPE="fast"
+  GEM5TYPE="opt"
+  DEBUG_FLAGS="--debug-flags=Ethernet"
+  # CPUTYPE="AtomicSimpleCPU"
+  CPUTYPE="TimingSimpleCPU"
+  CONFIGARGS="--max-checkpoints 1 -r 1 --cpu-clock=$Freq  --caches --smt-model --num-nics 1 --l3cache --l2cache" \
   # --param=system.cpu[0:4].smtNumFetchingThreads=$smt_fetching_threads --param=system.cpu[0:4].numPhysVecPredRegs=$(($num_cores*$num_threads*32)) \
   # --param=system.cpu[0:4].numROBEntries=64 --param=system.cpu[0:4].numIQEntries=60 \
   # --param=system.cpu[0:4].LQEntries=64 --param=system.cpu[0:4].SQEntries=64"
