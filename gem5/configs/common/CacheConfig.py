@@ -181,6 +181,18 @@ def config_cache(options, system):
         print("You can only use the SMT models with even number of cores.\n")
         sys.exit(1)
 
+    if options.smt_model and options.num_cpus > 16:
+        print("You can only use this smt model with at most 16 cores.\n")
+        sys.exit(1)
+    
+    if (options.smt_model or options.smt) and not options.l3cache:
+        print("You can only use SMT models with l3caches.\n")
+        sys.exit(1)
+    
+    if (options.smt_model or options.smt) and (not options.l3cache and options.l2cache):
+        print("You can only use SMT models with three-level of caches.\n")
+        sys.exit(1)
+
     if options.external_memory_system:
         ExternalCache = ExternalCacheFactory(options.external_memory_system)
 
@@ -249,8 +261,6 @@ def config_cache(options, system):
         if options.smt_model:
             system.l3.connectCPUSideBus(system.tol3bus) 
             system.l3.connectMemSideBus(system.membus)
-            # system.l3.cpu_side = system.tol3bus.master
-            # system.l3.mem_side = system.membus.slave
         else:
             system.l3.cpu_side = system.tol3bus.master
             system.l3.mem_side = system.membus.slave
@@ -259,20 +269,12 @@ def config_cache(options, system):
         # Provide a clock for the L2 and the L1-to-L2 bus here as they
         # are not connected using addTwoLevelCacheHierarchy. Use the
         # same clock as the CPUs.
-        if options.smt_model:
-            system.l2 = l3_cache_class(clk_domain=system.cpu_clk_domain,
-                                   **_get_cache_opts('l2', options))
-            
-            system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
-            system.l2.connectCPUSideBus(system.tol2bus)
-            system.l2.connectMemSideBus(system.membus)
-        else:
-            system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
-                                   **_get_cache_opts('l2', options))
+        system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
+                                **_get_cache_opts('l2', options))
 
-            system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
-            system.l2.cpu_side = system.tol2bus.master
-            system.l2.mem_side = system.membus.slave
+        system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
+        system.l2.cpu_side = system.tol2bus.master
+        system.l2.mem_side = system.membus.slave
 
     if options.memchecker:
         system.memchecker = MemChecker()
@@ -345,8 +347,22 @@ def config_cache(options, system):
                 elif options.smt_model: # JOHNSON
                     # Connect up icaches, dcaches and l2cache for a 2-cpu cluster sharing the L1 Caches and L2 Cache (Three-Level)
                     # Specify L2 XBar
-                    system.cpu[i].tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
-                    # system.cpu[i+1].tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
+                    if i == 0:
+                        system.tol2bus0 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    elif i == 2:
+                        system.tol2bus1 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    elif i == 4:
+                        system.tol2bus2 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    elif i == 6:
+                        system.tol2bus3 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    elif i == 8:
+                        system.tol2bus4 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    elif i == 10:
+                        system.tol2bus5 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    elif i == 12:
+                        system.tol2bus6 = L2XBar(clk_domain = system.cpu_clk_domain)
+                    else:
+                        system.tol2bus7 = L2XBar(clk_domain = system.cpu_clk_domain)
                     # shared icache
                     system.cpu[i].icache = icache_smt_1
                     system.cpu[i+1].icache = icache_smt_2
@@ -358,32 +374,152 @@ def config_cache(options, system):
                     system.cpu[i+1]._cached_ports += ArchMMU.walkerPorts()
 
                     # hook up icaches to the L2 XBar
-                    system.cpu[i].icache.connectBus(system.cpu[i].tol2bus)
-                    system.cpu[i+1].icache.connectBus(system.cpu[i].tol2bus)
+                    if i == 0:
+                        system.cpu[i].icache.connectBus(system.tol2bus0)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus0)
+                    elif i == 2:
+                        system.cpu[i].icache.connectBus(system.tol2bus1)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus1)
+                    elif i == 4:
+                        system.cpu[i].icache.connectBus(system.tol2bus2)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus2)
+                    elif i == 6:
+                        system.cpu[i].icache.connectBus(system.tol2bus3)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus3)
+                    elif i == 8:
+                        system.cpu[i].icache.connectBus(system.tol2bus4)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus4)
+                    elif i == 10:
+                        system.cpu[i].icache.connectBus(system.tol2bus5)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus5)
+                    elif i == 12:
+                        system.cpu[i].icache.connectBus(system.tol2bus6)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus6)
+                    else:
+                        system.cpu[i].icache.connectBus(system.tol2bus7)
+                        system.cpu[i+1].icache.connectBus(system.tol2bus7)
                     # shared dcache
                     system.cpu[i].dcache = dcache_smt_1
                     system.cpu[i+1].dcache = dcache_smt_2
                     system.cpu[i].dcache.connectCPU(system.cpu[i])
                     system.cpu[i+1].dcache.connectCPU(system.cpu[i+1])
                     # hook up dcaches to the L2 XBar
-                    system.cpu[i].dcache.connectBus(system.cpu[i].tol2bus)
-                    system.cpu[i+1].dcache.connectBus(system.cpu[i].tol2bus)
+                    if i == 0:
+                        system.cpu[i].dcache.connectBus(system.tol2bus0)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus0)
+                    elif i == 2:
+                        system.cpu[i].dcache.connectBus(system.tol2bus1)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus1)
+                    elif i == 4:
+                        system.cpu[i].dcache.connectBus(system.tol2bus2)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus2)
+                    elif i == 6:
+                        system.cpu[i].dcache.connectBus(system.tol2bus3)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus3)
+                    elif i == 8:
+                        system.cpu[i].dcache.connectBus(system.tol2bus4)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus4)
+                    elif i == 10:
+                        system.cpu[i].dcache.connectBus(system.tol2bus5)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus5)
+                    elif i == 12:
+                        system.cpu[i].dcache.connectBus(system.tol2bus6)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus6)
+                    else:
+                        system.cpu[i].dcache.connectBus(system.tol2bus7)
+                        system.cpu[i+1].dcache.connectBus(system.tol2bus7)
                     # hook up walkerports to the L2 XBar
-                    system.cpu[i].mmu.itb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
-                    system.cpu[i].mmu.dtb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
-                    system.cpu[i+1].mmu.itb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
-                    system.cpu[i+1].mmu.dtb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
+                    if i == 0:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus0.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus0.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus0.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus0.cpu_side_ports
+                    elif i == 2:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus1.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus1.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus1.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus1.cpu_side_ports
+                    elif i == 4:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus2.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus2.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus2.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus2.cpu_side_ports
+                    elif i == 6:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus3.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus3.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus3.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus3.cpu_side_ports
+                    elif i == 8:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus4.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus4.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus4.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus4.cpu_side_ports
+                    elif i == 10:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus5.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus5.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus5.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus5.cpu_side_ports
+                    elif i == 12:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus6.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus6.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus6.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus6.cpu_side_ports
+                    else:
+                        system.cpu[i].mmu.itb_walker.port = system.tol2bus7.cpu_side_ports
+                        system.cpu[i].mmu.dtb_walker.port = system.tol2bus7.cpu_side_ports
+                        system.cpu[i+1].mmu.itb_walker.port = system.tol2bus7.cpu_side_ports
+                        system.cpu[i+1].mmu.dtb_walker.port = system.tol2bus7.cpu_side_ports
                     # shared L2 Cache
-                    system.cpu[i].l2cache = l2_smt1
-                    # system.cpu[i+1].l2cache = l2_smt2 # An extra l2cache may not be needed
+                    if i == 0:
+                        system.l2cache0 = l2_smt1
+                    elif i == 2:
+                        system.l2cache1 = l2_smt2
+                    elif i == 4:
+                        system.l2cache2 = l2_smt1
+                    elif i == 6:
+                        system.l2cache3 = l2_smt2
+                    elif i == 8:
+                        system.l2cache4 = l2_smt1
+                    elif i == 10:
+                        system.l2cache5 = l2_smt2
+                    elif i == 12:
+                        system.l2cache6 = l2_smt1
+                    else:
+                        system.l2cache7 = l2_smt2
                     # hook up l2cache to the L2 XBar
-                    system.cpu[i].l2cache.connectCPUSideBus(system.cpu[i].tol2bus)
-                    # system.cpu[i+1].l2cache.connectCPUSideBus(system.cpu[i+1].tol2bus)
-                    system.cpu[i]._cached_ports = ['l2cache.mem_side']
-                    # system.cpu[i+1]._cached_ports = ['l2cache.mem_side']
+                    if i == 0:
+                        system.l2cache0.connectCPUSideBus(system.tol2bus0)
+                    elif i == 2:
+                        system.l2cache1.connectCPUSideBus(system.tol2bus1)
+                    elif i == 4:
+                        system.l2cache2.connectCPUSideBus(system.tol2bus2)
+                    elif i == 6:
+                        system.l2cache3.connectCPUSideBus(system.tol2bus3)
+                    elif i == 8:
+                        system.l2cache4.connectCPUSideBus(system.tol2bus4)
+                    elif i == 10:
+                        system.l2cache5.connectCPUSideBus(system.tol2bus5)
+                    elif i == 12:
+                        system.l2cache6.connectCPUSideBus(system.tol2bus6)
+                    else:
+                        system.l2cache7.connectCPUSideBus(system.tol2bus7)
                     # hook up l2cache to the L3 XBar
-                    system.cpu[i].l2cache.connectMemSideBus(system.tol3bus)
-                    # system.cpu[i+1].l2cache.connectMemSideBus(system.tol3bus)
+                    if i == 0:
+                        system.l2cache0.connectMemSideBus(system.tol3bus)
+                    elif i == 2:
+                        system.l2cache1.connectMemSideBus(system.tol3bus)
+                    elif i == 4:
+                        system.l2cache2.connectMemSideBus(system.tol3bus)
+                    elif i == 6:
+                        system.l2cache3.connectMemSideBus(system.tol3bus)
+                    elif i == 8:
+                        system.l2cache4.connectMemSideBus(system.tol3bus)
+                    elif i == 10:
+                        system.l2cache5.connectMemSideBus(system.tol3bus)
+                    elif i == 12:
+                        system.l2cache6.connectMemSideBus(system.tol3bus)
+                    else:
+                        system.l2cache7.connectMemSideBus(system.tol3bus)
                 else:
                     system.cpu[i].addTwoLevelCacheHierarchy(icache, dcache, l2)
                     system.cpu[i+1].addTwoLevelCacheHierarchy(icache, dcache, l2)
@@ -399,7 +535,7 @@ def config_cache(options, system):
                     # hook up icaches to the L2 XBar
                     system.cpu[i].icache.connectBus(system.cpu[i].tol2bus)
                     system.cpu[i+1].icache.connectBus(system.tol2bus)
-                    # shared dcache
+                    # shared dcaches
                     system.cpu[i].dcache = dcache_smt_1
                     system.cpu[i+1].dcache = dcache_smt_2
                     system.cpu[i].dcache.connectCPU(system.cpu[i])
