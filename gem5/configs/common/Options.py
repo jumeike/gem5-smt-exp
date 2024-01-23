@@ -264,6 +264,11 @@ def addCommonOptions(parser):
                       Only used if multiple programs are specified. If true,
                       then the number of threads per cpu is same as the
                       number of programs.""")
+    parser.add_argument("--smt-model", action="store_true", default=False,
+                        help="""
+                      Only used if multiple programs are specified. If true,
+                      then the number of threads per cpu is same as the
+                      number of programs.""")
     parser.add_argument(
         "--elastic-trace-en", action="store_true",
         help="""Enable capture of data dependency and instruction

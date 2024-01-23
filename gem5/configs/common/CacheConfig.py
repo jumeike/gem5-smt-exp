@@ -346,7 +346,7 @@ def config_cache(options, system):
                     # Connect up icaches, dcaches and l2cache for a 2-cpu cluster sharing the L1 Caches and L2 Cache (Three-Level)
                     # Specify L2 XBar
                     system.cpu[i].tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
-                    system.cpu[i+1].tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
+                    # system.cpu[i+1].tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
                     # shared icache
                     system.cpu[i].icache = icache_smt_1
                     system.cpu[i+1].icache = icache_smt_2
@@ -371,19 +371,19 @@ def config_cache(options, system):
                     # hook up walkerports to the L2 XBar
                     system.cpu[i].mmu.itb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
                     system.cpu[i].mmu.dtb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
-                    system.cpu[i+1].mmu.itb_walker.port = system.cpu[i+1].tol2bus.cpu_side_ports
-                    system.cpu[i+1].mmu.dtb_walker.port = system.cpu[i+1].tol2bus.cpu_side_ports
+                    system.cpu[i+1].mmu.itb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
+                    system.cpu[i+1].mmu.dtb_walker.port = system.cpu[i].tol2bus.cpu_side_ports
                     # shared L2 Cache
                     system.cpu[i].l2cache = l2_smt1
-                    system.cpu[i+1].l2cache = l2_smt2 # An extra l2cache may not be needed
+                    # system.cpu[i+1].l2cache = l2_smt2 # An extra l2cache may not be needed
                     # hook up l2cache to the L2 XBar
                     system.cpu[i].l2cache.connectCPUSideBus(system.cpu[i].tol2bus)
-                    system.cpu[i+1].l2cache.connectCPUSideBus(system.cpu[i+1].tol2bus)
+                    # system.cpu[i+1].l2cache.connectCPUSideBus(system.cpu[i+1].tol2bus)
                     system.cpu[i]._cached_ports = ['l2cache.mem_side']
-                    system.cpu[i+1]._cached_ports = ['l2cache.mem_side']
+                    # system.cpu[i+1]._cached_ports = ['l2cache.mem_side']
                     # hook up l2cache to the L3 XBar
                     system.cpu[i].l2cache.connectMemSideBus(system.tol3bus)
-                    system.cpu[i+1].l2cache.connectMemSideBus(system.tol3bus)
+                    # system.cpu[i+1].l2cache.connectMemSideBus(system.tol3bus)
                 else:
                     system.cpu[i].addTwoLevelCacheHierarchy(icache, dcache, l2)
                     system.cpu[i+1].addTwoLevelCacheHierarchy(icache, dcache, l2)
