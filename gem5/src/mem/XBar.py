@@ -224,6 +224,30 @@ class L3XBar(CoherentXBar):
     # to the first level of unified cache.
     point_of_unification = True
 
+# JOHNSON
+# We use a coherent crossbar to connect multiple requestors to the L2
+# caches. Normally this crossbar would be part of the cache itself.
+class L1XBar(CoherentXBar):
+    # 256-bit crossbar by default
+    width = 32
+
+    # Assume that most of this is covered by the cache latencies, with
+    # no more than a single pipeline stage for any packet.
+    frontend_latency = 0
+    forward_latency = 0
+    response_latency = 0
+    snoop_response_latency = 0
+
+    # Use a snoop-filter by default, and set the latency to zero as
+    # the lookup is assumed to overlap with the frontend latency of
+    # the crossbar
+    snoop_filter = SnoopFilter(lookup_latency = 0, is_for_l3x = False)
+
+    # This specialisation of the coherent crossbar is to be considered
+    # the point of unification, it connects the dcache and the icache
+    # to the first level of unified cache.
+    point_of_unification = True
+
 # In addition to the system interconnect, we typically also have one
 # or more on-chip I/O crossbars. Note that at some point we might want
 # to also define an off-chip I/O crossbar such as PCIe.
